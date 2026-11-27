@@ -1,4 +1,5 @@
 import { useSignal } from '@preact/signals';
+import { useRef } from 'preact/hooks';
 import type { LatLng, Order, PayMethod } from '../../data/types';
 import { km1, rupees } from '../../lib/format';
 import { nearestPlace } from '../../lib/geo';
@@ -23,6 +24,7 @@ export function CheckoutPage() {
   const errors = useSignal<Record<string, string>>({});
   const busy = useSignal(false);
   const locating = useSignal(false);
+  const attempt = useRef<{ id: string; code: string; sig: string } | null>(null);
   const s = settings.value;
   const items = menu.value.items;
   const maxOf = (id: string) => { const it = items.find(i => i.id === id); return it ? maxQty(it) : 20; };
@@ -62,24 +64,36 @@ export function CheckoutPage() {
     const db = store.value;
     if (!db) return;
     busy.value = true;
+    // Same cart + address = same order id, so tapping again after a slow/failed attempt can never create a duplicate.
+    const sig = JSON.stringify([q.lines, q.total, address.value, loc.value, pay.value]);
+    if (!attempt.current || attempt.current.sig !== sig) attempt.current = { id: docId(), code: shortCode(), sig };
+    const { id, code } = attempt.current;
+    const done = () => {
+      attempt.current = null;
+      profile.value = { name: cleanText(name.value, 60), phone: normalizePhone(phone.value)!, address: cleanText(address.value, 200), location: loc.value };
+      cart.value = {};
+      cookingNote.value = '';
+      navigate(`/order/${id}?new=1`, true);
+    };
     try {
       const now = Date.now();
       const ph = normalizePhone(phone.value)!;
       const order: Order = {
-        id: docId(), code: shortCode(), customerUid: await db.customerUid(),
+        id, code, customerUid: await db.customerUid(),
         name: cleanText(name.value, 60), phone: ph, address: cleanText(address.value, 200),
         area: nearestPlace(loc.value!), location: loc.value!, note: cleanText(cookingNote.value, 200),
         lines: q.lines, subtotal: q.subtotal, deliveryFee: q.deliveryFee, total: q.total,
         pay: pay.value, payState: 'pending', status: 'placed', placedAt: now,
         promiseAt: now + q.promiseMin * 60_000, roadKm: Math.round((q.roadKm ?? 0) * 10) / 10,
       };
-      await db.placeOrder(order);
-      profile.value = { name: order.name, phone: ph, address: order.address, location: order.location };
-      cart.value = {};
-      cookingNote.value = '';
-      navigate(`/order/${order.id}?new=1`, true);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const slow = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error('SLOW')), 20_000); });
+      try { await Promise.race([db.placeOrder(order), slow]); } finally { clearTimeout(timer); }
+      done();
     } catch (err) {
-      notify(errMsg(err), 'err');
+      // The order may have reached the kitchen even though we got an error (e.g. a retry of an order that already went through).
+      if (await db.orderExists(id).catch(() => false)) { done(); return; }
+      notify((err as Error)?.message === 'SLOW' ? 'Internet is slow. Your order may still go through. Tap Place order again: it will not be placed twice.' : errMsg(err), 'err');
     } finally {
       busy.value = false;
     }

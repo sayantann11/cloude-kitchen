@@ -79,6 +79,7 @@ export class LocalStore implements DataStore {
     all[o.id] = o;
     this.setOrders(all);
   }
+  async orderExists(id: string) { return !!this.orders()[id]; }
   watchOrder(id: string, cb: (o: Order | null) => void) {
     return this.on('orders', () => cb(this.orders()[id] ?? null));
   }

@@ -19,6 +19,8 @@ export interface DataStore {
 
   // customer
   placeOrder(o: Order): Promise<void>;
+  /** Did this order reach the server? (used to make retries safe on weak internet) */
+  orderExists(id: string): Promise<boolean>;
   watchOrder(id: string, cb: (o: Order | null) => void): Unsub;
   watchMyOrders(uid: string, cb: (o: Order[]) => void): Unsub;
   cancelOrder(id: string, reason: string): Promise<void>;

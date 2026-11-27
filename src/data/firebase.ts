@@ -11,7 +11,7 @@ import {
   getAuth, onAuthStateChanged, sendPasswordResetEmail, signInAnonymously, signInWithEmailAndPassword, signOut, type User,
 } from 'firebase/auth';
 import {
-  collection, doc, getDoc, initializeFirestore, limit, onSnapshot, orderBy, persistentLocalCache,
+  collection, doc, getDoc, getDocFromServer, initializeFirestore, limit, onSnapshot, orderBy, persistentLocalCache,
   persistentMultipleTabManager, query, runTransaction, setDoc, updateDoc, where, writeBatch,
   type DocumentData, type Firestore, type UpdateData,
 } from 'firebase/firestore';
@@ -72,6 +72,10 @@ export class FirebaseStore implements DataStore {
     const u = await this.user();
     if (u.uid !== o.customerUid) o = { ...o, customerUid: u.uid };
     await setDoc(doc(this.db, 'orders', o.id), clean(o));
+  }
+  async orderExists(id: string) {
+    await this.user();
+    try { return (await getDocFromServer(doc(this.db, 'orders', id))).exists(); } catch { return false; }
   }
   watchOrder(id: string, cb: (o: Order | null) => void): Unsub {
     let off: Unsub = () => {};
