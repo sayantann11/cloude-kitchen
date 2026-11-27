@@ -2,12 +2,12 @@ import type { DataStore } from './store';
 
 /**
  * Picks the backend. Firebase is used when the VITE_FIREBASE_* keys are set at build time
- * (see .env.example); otherwise the app runs in local demo mode. `?demo` forces demo mode.
+ * (see .env.example); otherwise the app runs in local demo mode. `?demo` (and the e2e test build) force demo mode.
  * The Firebase SDK is code-split, so demo mode never downloads it.
  */
 export async function createStore(): Promise<DataStore> {
   const env = import.meta.env;
-  const forceDemo = new URLSearchParams(location.search).has('demo');
+  const forceDemo = env.MODE === 'e2e' || new URLSearchParams(location.search).has('demo');
   if (!forceDemo && env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID) {
     const { FirebaseStore } = await import('./firebase');
     return new FirebaseStore({

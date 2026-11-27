@@ -24,9 +24,10 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'], channel } },
   ],
   webServer: {
-    command: 'npx vite preview --port 4173 --strictPort',
+    // Separate demo-mode build: tests never touch the real Firebase database.
+    command: 'npx vite build --mode e2e --outDir dist-e2e && npx vite preview --outDir dist-e2e --port 4173 --strictPort',
+    timeout: 120_000,
     url: 'http://localhost:4173',
     reuseExistingServer: true,
-    timeout: 60_000,
   },
 });
