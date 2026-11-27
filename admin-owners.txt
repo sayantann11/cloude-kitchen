@@ -1,3 +1,4 @@
 # Firebase Auth UIDs (email logins) allowed into /admin. One per line.
 # Push a change to this file and GitHub updates Firestore owners/{uid} (old ones are removed).
 rQjOgXcjYTMBfy2W5msgor2Ahx32
+MtY9tKz8n0bGzPRljICwp9DJXmf2
