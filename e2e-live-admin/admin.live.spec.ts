@@ -20,7 +20,7 @@ const card = (page: Page, name: string) => page.locator('.item').filter({ has: p
 const row = (page: Page, name: string) => page.getByTestId('admin-row').filter({ has: page.getByRole('button', { name: `Edit ${name}`, exact: true }) });
 
 function logErrors(page: Page, who: string) {
-  page.on('requestfailed', r => console.log(`::warning::[${who}] request failed ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
+  openPages.push(page);
   page.on('pageerror', e => console.log(`::warning::[${who} page error] ${e.message.slice(0, 300)}`));
   page.on('console', m => { if (m.type() === 'error') console.log(`::warning::[${who} console] ${m.text().slice(0, 300)}`); });
 }
@@ -58,6 +58,15 @@ async function adminContext(ctx: BrowserContext, baseURL: string) {
   await expect(page.getByRole('heading', { name: /New orders/ })).toBeAttached();
   return page;
 }
+
+const openPages: Page[] = [];
+test.afterEach(async ({}, info) => {
+  if (info.status === info.expectedStatus) return;
+  for (const p of openPages) {
+    const txt = await p.locator('body').innerText().catch(() => '(closed)');
+    console.log(`::warning::screen at failure ${p.url()} :: ${txt.replace(/\s+/g, ' ').slice(0, 500)}`);
+  }
+});
 
 test.beforeAll(() => { if (!process.env.QA_TOKEN) throw new Error('QA_TOKEN missing: run through the Live admin QA workflow'); });
 
