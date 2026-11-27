@@ -48,11 +48,14 @@ export class FirebaseStore implements DataStore {
   }
 
   /** Make sure *someone* is signed in (anonymous if nobody). */
+  private signingIn: Promise<User> | null = null;
   private async user(): Promise<User> {
     const u = (await this.ready) ?? this.auth.currentUser;
     if (u) return u;
-    const cred = await signInAnonymously(this.auth);
-    return cred.user;
+    // One sign-in at a time. Two parallel anonymous sign-ins (e.g. menu + checkout on a first visit) would give
+    // the phone two ids: the order is saved under one while the phone reads as the other, so it vanishes or hangs.
+    this.signingIn ??= signInAnonymously(this.auth).then(c => c.user).finally(() => { this.signingIn = null; });
+    return this.signingIn;
   }
 
   async customerUid() { return (await this.user()).uid; }

@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
 test.beforeEach(({ page }) => {
-  page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log(`[browser ${m.type()}] ${m.text().slice(0, 300)}`); });
-  page.on('pageerror', e => console.log(`[page error] ${e.message.slice(0, 300)}`));
+  page.on('requestfailed', r => console.log(`::warning::request failed ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
+  page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log(`::warning::[browser ${m.type()}] ${m.text().slice(0, 300)}`); });
+  page.on('pageerror', e => console.log(`::warning::[page error] ${e.message.slice(0, 300)}`));
 });
 
 const card = (page: Page, name: string) => page.locator('.item').filter({ has: page.locator('.nm').getByText(name, { exact: true }) });

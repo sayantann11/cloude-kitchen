@@ -20,8 +20,9 @@ const card = (page: Page, name: string) => page.locator('.item').filter({ has: p
 const row = (page: Page, name: string) => page.getByTestId('admin-row').filter({ has: page.getByRole('button', { name: `Edit ${name}`, exact: true }) });
 
 function logErrors(page: Page, who: string) {
-  page.on('pageerror', e => console.log(`[${who} page error] ${e.message.slice(0, 300)}`));
-  page.on('console', m => { if (m.type() === 'error') console.log(`[${who} console] ${m.text().slice(0, 300)}`); });
+  page.on('requestfailed', r => console.log(`::warning::[${who}] request failed ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
+  page.on('pageerror', e => console.log(`::warning::[${who} page error] ${e.message.slice(0, 300)}`));
+  page.on('console', m => { if (m.type() === 'error') console.log(`::warning::[${who} console] ${m.text().slice(0, 300)}`); });
 }
 
 async function placeOrder(page: Page, o: { name: string; phone: string; location: { lat: number; lng: number }; items: [string, number][] }) {
@@ -112,7 +113,7 @@ test('live night: orders → reject → accept → grouped trip → rider delive
 
   // 6. Customer sees the rider; rider delivers both
   await customer.goto(a.url);
-  await expect(customer.getByText(/Your rider is on the way/)).toBeVisible();
+  await expect(customer.getByText(/Your rider is on the way:/)).toBeVisible();
   const rider = await context.newPage();
   logErrors(rider, 'rider');
   await rider.goto(riderHref!);
