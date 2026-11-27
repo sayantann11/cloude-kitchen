@@ -225,7 +225,7 @@ function DispatchSheet({ b, onClose }: { b: Batch<KPlan> | null; onClose: () => 
           <label key={r.id} for={`rider-${r.id}`}><input id={`rider-${r.id}`} type="radio" name="rider" checked={rider.id === r.id} onChange={() => { riderId.value = r.id; }} /><span>{r.name}<small>{r.phone}</small></span></label>
         ))}
       </div>
-      <a href="/kitchen/settings" class="linkbtn small" onClick={() => onClose()}>Add or edit riders</a>
+      <a href="/admin/settings" class="linkbtn small" onClick={() => onClose()}>Add or edit riders</a>
       <Btn block busy={busy.value} onClick={send} id="confirm-send">Send {b!.orders.length} order{b!.orders.length > 1 ? 's' : ''} now</Btn>
     </Sheet>
   );
@@ -248,7 +248,7 @@ export function TripShare({ trip, onClose }: { trip: Trip; onClose: () => void }
         <Btn variant="ghost" onClick={async () => { notify((await copyText(riderLink(trip))) ? 'Rider link copied' : 'Could not copy'); }}>Copy rider link</Btn>
         <a class="btn ghost" href={`/rider/${trip.id}`} target="_blank" rel="noopener">Open rider page</a>
       </div>
-      <Btn variant="quiet" onClick={() => { onClose(); navigate('/kitchen/trips'); }}>See trips on the road</Btn>
+      <Btn variant="quiet" onClick={() => { onClose(); navigate('/admin/trips'); }}>See trips on the road</Btn>
     </Sheet>
   );
 }

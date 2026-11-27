@@ -18,20 +18,20 @@ test('every screen fits a phone without sideways scrolling', async ({ context })
   const page = await context.newPage();
   await page.goto('/');
   await noSideScroll(page, 'menu');
-  const o = await placeOrder(page, { name: 'Layout Test', phone: '9000022222', address: 'Farm Road lane 2, house 5', location: PLACES.farmRoad, items: [['Odia Veg Thali', 1]] });
+  const o = await placeOrder(page, { name: 'Layout Test', phone: '9000022222', address: 'Farm Road lane 2, house 5', location: PLACES.farmRoad, items: [['Paneer Masala', 1]] });
   await noSideScroll(page, 'tracking');
   await page.goto('/orders');
   await noSideScroll(page, 'my orders');
-  await page.getByRole('link', { name: /Layout|Odia Veg Thali/ }).first().click();
+  await page.getByRole('link', { name: /Layout|Paneer Masala/ }).first().click();
   await page.goto('/');
-  await page.getByRole('button', { name: /^Add Dalma Bhata/ }).click();
+  await page.getByRole('button', { name: /^Add Veg Biryani/ }).click();
   await page.goto('/checkout');
   await noSideScroll(page, 'checkout');
 
   await kitchenLogin(page);
   await noSideScroll(page, 'kitchen orders');
   for (const tab of ['trips', 'menu', 'reports', 'settings']) {
-    await page.goto(`/kitchen/${tab}`);
+    await page.goto(`/admin/${tab}`);
     await page.waitForLoadState('networkidle');
     await noSideScroll(page, `kitchen ${tab}`);
   }

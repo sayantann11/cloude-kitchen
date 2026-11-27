@@ -30,3 +30,6 @@ export const prettyPhone = (p: string) => {
 
 /** IST calendar day key, e.g. "2026-11-27". */
 export const istDay = (ms: number) => new Date(ms + 330 * 60_000).toISOString().slice(0, 10);
+
+/** Logo letter: first letter of the name, skipping a leading "The" ("The Night Kitchen" → "N"). */
+export const logoLetter = (name: string) => (name.trim().replace(/^the\s+/i, '').charAt(0) || 'K').toUpperCase();

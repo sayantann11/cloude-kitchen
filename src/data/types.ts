@@ -10,6 +10,9 @@ export interface MenuItem {
   category: string;
   tag?: string;             // e.g. "Bestseller"
   available: boolean;       // false = sold out today
+  stock?: number | null;    // portions left; null/undefined = not counted. Goes down when the kitchen accepts an order
+  hidden?: boolean;         // true = not shown to customers at all
+  oldPrice?: number;        // shown struck through when higher than price (offer)
   imageUrl?: string;
 }
 

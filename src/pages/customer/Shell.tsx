@@ -1,3 +1,4 @@
+import { logoLetter } from '../../lib/format';
 import type { ComponentChildren } from 'preact';
 import { cartCount, lang, open, settings } from '../../state/app';
 import { t } from '../../state/i18n';
@@ -14,7 +15,7 @@ export function CustomerShell({ children, back }: { children: ComponentChildren;
             <a class="iconbtn" href={back.href} aria-label={back.label}>←</a>
           ) : null}
           <a class="brand grow" href="/" aria-label={`${s.kitchenName} home`}>
-            <span class="logo" aria-hidden="true">{s.kitchenName.trim().charAt(0) || 'M'}</span>
+            <span class="logo" aria-hidden="true">{logoLetter(s.kitchenName)}</span>
             <span style={{ minWidth: 0 }}>
               <b>{s.kitchenName}</b>
               <small>{open.value.open ? <span style={{ color: 'var(--good)' }}>● {open.value.label}</span> : open.value.label}</small>

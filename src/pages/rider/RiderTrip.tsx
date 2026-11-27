@@ -1,3 +1,4 @@
+import { logoLetter } from '../../lib/format';
 import { useSignal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import type { Trip, TripStop } from '../../data/types';
@@ -35,7 +36,7 @@ export function RiderTrip({ id }: { id: string }) {
 
   return (
     <>
-      <header class="appbar"><div class="bandha" /><div class="wrap appbar-in"><span class="logo">{s.kitchenName.charAt(0)}</span><div class="grow"><b style={{ fontFamily: 'var(--f-display)' }}>Rider · {t.riderName}</b><div class="muted small">{s.kitchenName} · left {clock(t.departAt)}</div></div><a class="iconbtn" href={`tel:+91${s.phone}`} aria-label="Call kitchen"><IcPhone /></a></div></header>
+      <header class="appbar"><div class="bandha" /><div class="wrap appbar-in"><span class="logo">{logoLetter(s.kitchenName)}</span><div class="grow"><b style={{ fontFamily: 'var(--f-display)' }}>Rider · {t.riderName}</b><div class="muted small">{s.kitchenName} · left {clock(t.departAt)}</div></div><a class="iconbtn" href={`tel:+91${s.phone}`} aria-label="Call kitchen"><IcPhone /></a></div></header>
       <main class="wrap">
         <div class="stack lg">
           <div class="kpis">

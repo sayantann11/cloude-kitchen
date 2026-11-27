@@ -7,9 +7,10 @@ import { docId } from '../lib/ids';
 import { SEED_MENU, SEED_SETTINGS } from './seed';
 import type { DataStore, OwnerSession, Unsub } from './store';
 import { payAfter } from './store';
-import type { Menu, Order, Settings, Trip, TripStop } from './types';
+import type { Menu, Order, OrderLine, Settings, Trip, TripStop } from './types';
+import { applyStock } from '../lib/pricing';
 
-const K = { settings: 'mk:settings', menu: 'mk:menu', orders: 'mk:orders', trips: 'mk:trips', uid: 'mk:uid', owner: 'mk:owner' };
+const K = { settings: 'mk:settings', menu: 'mk:menu2', orders: 'mk:orders', trips: 'mk:trips', uid: 'mk:uid', owner: 'mk:owner' };
 export const DEMO_OWNER = { email: 'owner@demo.local', password: 'kitchen123' };
 
 type Key = 'settings' | 'menu' | 'orders' | 'trips' | 'owner';
@@ -115,6 +116,11 @@ export class LocalStore implements DataStore {
     this.emit('settings');
   }
   async saveMenu(m: Menu) { write(K.menu, { ...m, updatedAt: Date.now() }); this.emit('menu'); }
+  async takeStock(lines: Pick<OrderLine, 'id' | 'qty'>[]) {
+    const r = applyStock(read<Menu>(K.menu, SEED_MENU), lines);
+    if (r.changed) await this.saveMenu(r.menu);
+    return r.soldOut;
+  }
 
   watchOrdersSince(since: number, cb: (o: Order[]) => void) {
     return this.on('orders', () => cb(Object.values(this.orders()).filter(o => o.placedAt >= since).sort((a, b) => b.placedAt - a.placedAt)));

@@ -2,7 +2,7 @@ import { useComputed, useSignal } from '@preact/signals';
 import { useEffect, useRef } from 'preact/hooks';
 import type { MenuItem, Order } from '../../data/types';
 import { rupees } from '../../lib/format';
-import { quote } from '../../lib/pricing';
+import { LOW_STOCK, maxQty, quote, sellable, stockLeft } from '../../lib/pricing';
 import { cart, cartCount, lang, menu, notify, open, setQty, settings, store, vegOnly } from '../../state/app';
 import { t } from '../../state/i18n';
 
@@ -32,7 +32,7 @@ export function MenuPage() {
     const m = menu.value;
     return m.categories.map(cat => ({
       cat,
-      items: m.items.filter(i => i.category === cat && (!vegOnly.value || i.veg) && (!term || `${i.name} ${i.nameOr ?? ''} ${i.desc} ${i.tag ?? ''}`.toLowerCase().includes(term))),
+      items: m.items.filter(i => i.category === cat && !i.hidden && (!vegOnly.value || i.veg) && (!term || `${i.name} ${i.nameOr ?? ''} ${i.desc} ${i.tag ?? ''}`.toLowerCase().includes(term))),
     })).filter(sec => sec.items.length);
   });
 
@@ -57,13 +57,17 @@ export function MenuPage() {
   };
 
   const qt = quote(cart.value, menu.value.items, s, null);
+  const allVeg = menu.value.items.every(i => i.hidden || i.veg);
   const reorder = () => {
     const o = last.value;
     if (!o) return;
-    const avail = new Set(menu.value.items.filter(i => i.available).map(i => i.id));
+    const avail = new Set(menu.value.items.filter(sellable).map(i => i.id));
     const next = { ...cart.value };
     let skipped = 0;
-    for (const l of o.lines) { if (avail.has(l.id)) next[l.id] = (next[l.id] ?? 0) + l.qty; else skipped++; }
+    for (const l of o.lines) {
+      const it = menu.value.items.find(i => i.id === l.id);
+      if (it && avail.has(l.id)) next[l.id] = Math.min(maxQty(it), (next[l.id] ?? 0) + l.qty); else skipped++;
+    }
     cart.value = next;
     notify(skipped ? `Added to cart. ${skipped} item(s) are sold out today.` : 'Added your last order to the cart');
   };
@@ -74,6 +78,7 @@ export function MenuPage() {
         <section class="hero">
           <h1>{s.tagline}</h1>
           <div class="row">
+            {allVeg && <span class="chip good"><span class="vmark" aria-hidden="true" />Pure veg</span>}
             {st.open ? <span class="chip good"><span class="dot" />{st.label}</span> : <span class="chip warn">{st.label}</span>}
             <span class="chip">{s.promiseMin - 15}–{s.promiseMin} min</span>
             {s.freeDeliveryAbove > 0 && <span class="chip">{t('Free delivery')} above {rupees(s.freeDeliveryAbove)}</span>}
@@ -102,7 +107,7 @@ export function MenuPage() {
             {q.value && <button type="button" class="clear" onClick={() => { q.value = ''; }} aria-label="Clear search">×</button>}
           </div>
           <div class="cats" role="group" aria-label="Menu categories">
-            <button type="button" class="vegtoggle" aria-pressed={vegOnly.value} onClick={() => { vegOnly.value = !vegOnly.value; }}><span class="vmark" aria-hidden="true" /> {t('Veg only')}</button>
+            {!allVeg && <button type="button" class="vegtoggle" aria-pressed={vegOnly.value} onClick={() => { vegOnly.value = !vegOnly.value; }}><span class="vmark" aria-hidden="true" /> {t('Veg only')}</button>}
             {sections.value.map(sec => (
               <button key={sec.cat} type="button" aria-pressed={active.value === sec.cat} onClick={() => jump(sec.cat)}>{sec.cat}</button>
             ))}
@@ -138,17 +143,25 @@ export function MenuPage() {
 
 function ItemCard({ item: i }: { item: MenuItem }) {
   const qty = cart.value[i.id] ?? 0;
+  const ok = sellable(i);
+  const left = stockLeft(i);
+  const offer = i.oldPrice && i.oldPrice > i.price ? i.oldPrice : 0;
+  const action = !ok ? <span class="chip">{t('Sold out')}</span>
+    : qty ? <Stepper qty={qty} label={i.name} max={maxQty(i)} onChange={n => setQty(i.id, n)} />
+    : <button type="button" class="add" onClick={() => setQty(i.id, 1)} aria-label={`${t('Add')} ${i.name}`}>{t('Add').toUpperCase()}</button>;
   return (
-    <div class={`item ${i.available ? '' : 'off'}`}>
+    <div class={`item ${ok ? '' : 'off'} ${i.imageUrl ? 'has-img' : ''}`}>
       <div>
-        <h3><VegMark veg={i.veg} />{i.name}{i.tag && <span class="tag">{i.tag}</span>}</h3>
+        <h3><VegMark veg={i.veg} /><span class="nm">{i.name}</span>{i.tag && <span class="tag">{i.tag}</span>}</h3>
         {lang.value === 'or' && i.nameOr && <div class="or">{i.nameOr}</div>}
-        <p>{i.desc}</p>
+        {i.desc && <p>{i.desc}</p>}
         <span class="price">{rupees(i.price)}</span>
+        {offer > 0 && <> <s class="was">{rupees(offer)}</s> <span class="off-pct">{Math.round((1 - i.price / offer) * 100)}% off</span></>}
+        {ok && left !== null && left <= LOW_STOCK && <span class="few">Only {left} left</span>}
       </div>
-      {!i.available ? <span class="chip">{t('Sold out')}</span>
-        : qty ? <Stepper qty={qty} label={i.name} onChange={n => setQty(i.id, n)} />
-        : <button type="button" class="add" onClick={() => setQty(i.id, 1)} aria-label={`${t('Add')} ${i.name}`}>{t('Add').toUpperCase()}</button>}
+      {i.imageUrl ? (
+        <div class="item-media"><img src={i.imageUrl} alt="" loading="lazy" decoding="async" width={96} height={96} />{action}</div>
+      ) : action}
     </div>
   );
 }

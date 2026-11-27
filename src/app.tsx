@@ -7,7 +7,7 @@ import { TrackPage } from './pages/customer/Track';
 import { match, path } from './state/router';
 import { Skeleton, Toast } from './ui/kit';
 
-/** Kitchen and rider screens are separate chunks: customers never download them. */
+/** The rider screen is a separate chunk. The admin portal is a separate page (admin.html): customers never download it. */
 function lazy<P>(load: () => Promise<ComponentType<P>>) {
   let C: ComponentType<P> | null = null;
   let p: Promise<void> | null = null;
@@ -21,7 +21,6 @@ function lazy<P>(load: () => Promise<ComponentType<P>>) {
     return C ? <C {...(props as P & object)} /> : <div class="wrap" style={{ paddingTop: '40px' }}><Skeleton /></div>;
   };
 }
-const Kitchen = lazy(() => import('./pages/owner/Kitchen').then(m => m.KitchenApp));
 const Rider = lazy<{ id: string }>(() => import('./pages/rider/RiderTrip').then(m => m.RiderTrip));
 
 export function App() {
@@ -33,7 +32,6 @@ export function App() {
   else if (match('/orders', p)) page = <OrdersPage />;
   else if ((m = match('/order/:id', p))) page = <TrackPage key={m.id} id={m.id} />;
   else if ((m = match('/rider/:id', p))) page = <Rider id={m.id} />;
-  else if (p.startsWith('/kitchen')) page = <Kitchen />;
   else page = <NotFound />;
   return <>{page}<Toast /></>;
 }

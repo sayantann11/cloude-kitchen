@@ -3,7 +3,7 @@ import { SEED_MENU, SEED_SETTINGS } from '../data/seed';
 import type { DataStore, OwnerSession } from '../data/store';
 import type { LatLng, Menu, Settings } from '../data/types';
 import { openState } from '../lib/hours';
-import type { Cart } from '../lib/pricing';
+import { maxQty, MAX_QTY_PER_ITEM, type Cart } from '../lib/pricing';
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v ? { ...fallback, ...JSON.parse(v) } as T : fallback; } catch { return fallback; }
@@ -19,10 +19,10 @@ export const store = signal<DataStore | null>(null);
 
 // Settings + menu paint instantly from cache, then live data replaces them.
 export const settings = signal<Settings>(load('mk:c:settings', SEED_SETTINGS));
-export const menu = signal<Menu>(loadRaw('mk:c:menu', SEED_MENU));
+export const menu = signal<Menu>(loadRaw('mk:c:menu2', SEED_MENU));
 export const liveLoaded = signal(false);
 persist('mk:c:settings', settings);
-persist('mk:c:menu', menu);
+persist('mk:c:menu2', menu);
 
 export const cart = signal<Cart>(loadRaw('mk:cart', {}));
 persist('mk:cart', cart);
@@ -49,7 +49,8 @@ export const cartCount = computed(() => Object.values(cart.value).reduce((a, b) 
 
 export function setQty(id: string, qty: number) {
   const next = { ...cart.value };
-  if (qty <= 0) delete next[id]; else next[id] = Math.min(20, qty);
+  const it = menu.value.items.find(i => i.id === id);
+  if (qty <= 0) delete next[id]; else next[id] = Math.min(it ? maxQty(it) : MAX_QTY_PER_ITEM, qty);
   cart.value = next;
 }
 

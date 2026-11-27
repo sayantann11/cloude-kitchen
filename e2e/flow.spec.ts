@@ -6,9 +6,9 @@ test.beforeEach(async ({ context }) => { await freshApp(context); });
 test('full night: 3 orders → kitchen accepts → 2 grouped into one trip → rider delivers → customer sees it live', async ({ context }) => {
   const customer = await context.newPage();
 
-  const a = await placeOrder(customer, { name: 'Rakesh Meher', phone: '9437160008', address: 'Farm Road, behind SBI ATM', location: PLACES.farmRoad, items: [['Machha Besara', 1], ['Dalma Bhata', 1]] });
-  const b = await placeOrder(customer, { name: 'Priya Sahu', phone: '9861041221', address: 'Near Ainthapali Chowk, blue gate', location: PLACES.ainthapali, items: [['Odia Veg Thali', 2]] });
-  const c = await placeOrder(customer, { name: 'Sourav Dash', phone: '7008011145', address: 'Khetrajpur railway colony C/14', location: PLACES.khetrajpur, items: [['Egg Roll', 2]] });
+  const a = await placeOrder(customer, { name: 'Rakesh Meher', phone: '9437160008', address: 'Farm Road, behind SBI ATM', location: PLACES.farmRoad, items: [['Paneer Kadhai', 1], ['Veg Biryani', 1]] });
+  const b = await placeOrder(customer, { name: 'Priya Sahu', phone: '9861041221', address: 'Near Ainthapali Chowk, blue gate', location: PLACES.ainthapali, items: [['Paneer Masala', 2]] });
+  const c = await placeOrder(customer, { name: 'Sourav Dash', phone: '7008011145', address: 'Khetrajpur railway colony C/14', location: PLACES.khetrajpur, items: [['Paneer Roll', 2]] });
 
   const kitchen = await context.newPage();
   await kitchenLogin(kitchen);
@@ -62,13 +62,13 @@ test('full night: 3 orders → kitchen accepts → 2 grouped into one trip → r
   await expect(customer.locator('.eta')).toContainText('Delivered');
 
   // Kitchen: trip gone from the road, km saved counted.
-  await kitchen.goto('/kitchen/trips');
+  await kitchen.goto('/admin/trips');
   await expect(kitchen.getByText('No riders out')).toBeVisible();
-  await kitchen.goto('/kitchen');
+  await kitchen.goto('/admin');
   await expect(kitchen.locator('.kpi.good')).not.toContainText(/^Saved by grouping today0\.0/);
 
   // Reports
-  await kitchen.goto('/kitchen/reports');
+  await kitchen.goto('/admin/reports');
   await expect(kitchen.locator('.kpi').first()).toContainText('2');
   const dl = kitchen.waitForEvent('download');
   await kitchen.getByRole('button', { name: 'Download CSV' }).click();
@@ -77,7 +77,7 @@ test('full night: 3 orders → kitchen accepts → 2 grouped into one trip → r
 
 test('kitchen rejects an order and the customer sees why', async ({ context }) => {
   const customer = await context.newPage();
-  const o = await placeOrder(customer, { name: 'Test Customer', phone: '9000011111', address: 'Golebazar main road shop 4', location: PLACES.farmRoad, items: [['Dalma Bhata', 1]] });
+  const o = await placeOrder(customer, { name: 'Test Customer', phone: '9000011111', address: 'Golebazar main road shop 4', location: PLACES.farmRoad, items: [['Veg Biryani', 1]] });
   const kitchen = await context.newPage();
   await kitchenLogin(kitchen);
   await kitchen.locator('.ocard.new').getByRole('button', { name: 'Details' }).click();
@@ -91,9 +91,9 @@ test('kitchen rejects an order and the customer sees why', async ({ context }) =
 test('owner marks a dish sold out and pauses orders; customers see both', async ({ context }) => {
   const kitchen = await context.newPage();
   await kitchenLogin(kitchen);
-  await kitchen.goto('/kitchen/menu');
+  await kitchen.goto('/admin/menu');
   await kitchen.getByRole('switch', { name: 'On' }).first().uncheck();
-  await expect(kitchen.getByText(/1 sold out today/)).toBeVisible();
+  await expect(kitchen.getByText(/· 1 sold out ·/)).toBeVisible();
 
   const customer = await context.newPage();
   await customer.goto('/');
@@ -103,7 +103,7 @@ test('owner marks a dish sold out and pauses orders; customers see both', async 
   await kitchen.getByRole('button', { name: '+ Add dish' }).click();
   await kitchen.locator('#it-name').fill('Chicken Biryani');
   await kitchen.locator('#it-price').fill('199');
-  await kitchen.locator('#it-cat').selectOption('Thali');
+  await kitchen.locator('#it-cat').selectOption('Combos & Meals');
   await kitchen.getByRole('switch', { name: 'Veg' }).uncheck();
   await kitchen.getByRole('button', { name: 'Save dish' }).click();
   await expect(customer.getByRole('heading', { name: 'Chicken Biryani' })).toBeVisible();
@@ -116,7 +116,7 @@ test('owner marks a dish sold out and pauses orders; customers see both', async 
 test('owner changes settings and they apply to customers', async ({ context }) => {
   const kitchen = await context.newPage();
   await kitchenLogin(kitchen);
-  await kitchen.goto('/kitchen/settings');
+  await kitchen.goto('/admin/settings');
   await kitchen.locator('#s-kitchenName').fill('Sambalpur Rasoi');
   await kitchen.locator('#s-deliveryFee').fill('30');
   await kitchen.locator('#s-upi').fill('not-a-upi');
@@ -129,7 +129,7 @@ test('owner changes settings and they apply to customers', async ({ context }) =
   const customer = await context.newPage();
   await customer.goto('/');
   await expect(customer.locator('.brand b')).toHaveText('Sambalpur Rasoi');
-  await customer.getByRole('button', { name: /^Add Dalma Bhata/ }).click();
+  await customer.getByRole('button', { name: /^Add Veg Biryani/ }).click();
   await customer.locator('.cartbar').click();
   await expect(customer.getByText('₹30')).toBeVisible();
   await expect(customer.getByRole('radio', { name: /Pay now by UPI/ })).toBeVisible();
@@ -140,9 +140,9 @@ test('pay-now UPI: link, customer marks paid, kitchen sees it', async ({ context
   await setup.goto('/');
   await setup.evaluate(() => { const s = JSON.parse(localStorage.getItem('mk:settings') || '{}'); s.upiId = 'kitchen@okaxis'; localStorage.setItem('mk:settings', JSON.stringify(s)); });
   const customer = await context.newPage();
-  const o = await placeOrder(customer, { name: 'Lipsa Mishra', phone: '9437000001', address: 'Sakhipara, near school gate', location: PLACES.farmRoad, items: [['Fish Thali', 1]], pay: /Pay now by UPI/ });
+  const o = await placeOrder(customer, { name: 'Lipsa Mishra', phone: '9437000001', address: 'Sakhipara, near school gate', location: PLACES.farmRoad, items: [['Paneer Lababdar', 1]], pay: /Pay now by UPI/ });
   const link = customer.getByRole('link', { name: 'Open UPI app' });
-  await expect(link).toHaveAttribute('href', /^upi:\/\/pay\?pa=kitchen%40okaxis.*am=295\.00/);
+  await expect(link).toHaveAttribute('href', /^upi:\/\/pay\?pa=kitchen%40okaxis.*am=240\.00/);
   await customer.getByLabel('UPI reference number (optional)').fill('123456789012');
   await customer.getByRole('button', { name: 'I have paid' }).click();
   await expect(customer.getByText(/Payment marked as done/)).toBeVisible();
@@ -156,7 +156,7 @@ test('pay-now UPI: link, customer marks paid, kitchen sees it', async ({ context
 });
 
 test('wrong kitchen password is refused', async ({ page }) => {
-  await page.goto('/kitchen');
+  await page.goto('/admin');
   await page.locator('#pw').fill('nope');
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.getByText('Wrong email or password')).toBeVisible();

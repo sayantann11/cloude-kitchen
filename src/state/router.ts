@@ -11,13 +11,17 @@ export function navigate(to: string, replace = false) {
 
 window.addEventListener('popstate', () => { path.value = location.pathname + location.search; });
 
+/** Paths this page handles itself; links outside it load normally (customer app ↔ admin portal are separate pages). */
+let scope: (p: string) => boolean = p => !p.startsWith('/admin');
+export function setScope(fn: (p: string) => boolean) { scope = fn; }
+
 /** Intercept same-origin <a href="/..."> clicks so navigation is instant (no reload). */
 document.addEventListener('click', e => {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const a = (e.target as Element).closest('a');
   if (!a || a.target || a.hasAttribute('download')) return;
   const href = a.getAttribute('href');
-  if (!href || !href.startsWith('/') || href.startsWith('//')) return;
+  if (!href || !href.startsWith('/') || href.startsWith('//') || !scope(href)) return;
   e.preventDefault();
   navigate(href);
 });

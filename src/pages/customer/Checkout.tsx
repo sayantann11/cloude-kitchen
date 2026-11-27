@@ -3,7 +3,7 @@ import type { LatLng, Order, PayMethod } from '../../data/types';
 import { km1, rupees } from '../../lib/format';
 import { nearestPlace } from '../../lib/geo';
 import { docId, shortCode } from '../../lib/ids';
-import { quote } from '../../lib/pricing';
+import { maxQty, quote, sellable } from '../../lib/pricing';
 import { cleanText, normalizePhone, validateCheckout } from '../../lib/validate';
 import { cart, cookingNote, errMsg, menu, notify, open, profile, setQty, settings, store } from '../../state/app';
 import { t } from '../../state/i18n';
@@ -25,6 +25,7 @@ export function CheckoutPage() {
   const locating = useSignal(false);
   const s = settings.value;
   const items = menu.value.items;
+  const maxOf = (id: string) => { const it = items.find(i => i.id === id); return it ? maxQty(it) : 20; };
   const q = quote(cart.value, items, s, loc.value);
   const st = open.value;
 
@@ -95,14 +96,17 @@ export function CheckoutPage() {
         <section class="card" aria-labelledby="h-cart">
           <h2 id="h-cart">{t('Your order')}</h2>
           {q.missing.length > 0 && (
-            <div class="banner crit"><div><b>Sold out now</b>{q.missing.join(', ')}. <button type="button" class="linkbtn" onClick={() => { const c = { ...cart.value }; for (const it of items) if (!it.available) delete c[it.id]; for (const id of Object.keys(c)) if (!items.some(i => i.id === id)) delete c[id]; cart.value = c; }}>Remove them</button></div></div>
+            <div class="banner crit"><div><b>Sold out now</b>{q.missing.join(', ')}. <button type="button" class="linkbtn" onClick={() => { const c = { ...cart.value }; for (const it of items) if (!sellable(it)) delete c[it.id]; for (const id of Object.keys(c)) if (!items.some(i => i.id === id)) delete c[id]; cart.value = c; }}>Remove them</button></div></div>
+          )}
+          {q.capped.length > 0 && (
+            <div class="banner warn"><div><b>Only a few left</b>We lowered the quantity of {q.capped.join(', ')} to what the kitchen has.</div></div>
           )}
           <div class="stack">
             {q.lines.map(l => (
               <div class="cartline" key={l.id}>
                 <VegMark veg={l.veg} />
                 <span>{l.name}</span>
-                <Stepper qty={l.qty} label={l.name} onChange={n => setQty(l.id, n)} />
+                <Stepper qty={l.qty} label={l.name} max={maxOf(l.id)} onChange={n => setQty(l.id, n)} />
                 <span class="num" style={{ minWidth: '56px', textAlign: 'right' }}>{rupees(l.price * l.qty)}</span>
               </div>
             ))}

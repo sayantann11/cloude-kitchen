@@ -3,19 +3,19 @@ import { addItem, freshApp, PLACES, setProfile } from './helpers';
 
 test.beforeEach(async ({ context }) => { await freshApp(context); });
 
-test('menu loads fast with categories, search and veg filter', async ({ page }) => {
+test('menu loads the full menu card with categories and search', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Odia home food');
-  await expect(page.getByRole('heading', { name: /Odia specials/ })).toBeVisible();
-  await expect(page.locator('.item')).toHaveCount(18);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('late-night cravings');
+  await expect(page.getByRole('heading', { name: /Combos & Meals/ })).toBeVisible();
+  await expect(page.locator('.item')).toHaveCount(103);
+  await expect(page.locator('.hero .chip').getByText('Pure veg')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Veg only/ })).toHaveCount(0); // pointless on a pure-veg menu
 
-  await page.getByRole('searchbox', { name: 'Search dishes' }).fill('chhena');
-  await expect(page.locator('.item')).toHaveCount(3); // Chhena Tarkari, Chhena Poda, Rasabali ("fried chhena discs")
+  await page.getByRole('searchbox', { name: 'Search dishes' }).fill('manchurian');
+  await expect(page.locator('.item')).toHaveCount(6); // 4 Manchurian dishes + Chinese & Noodles combos
   await page.getByRole('button', { name: 'Clear search' }).click();
-
-  await page.getByRole('button', { name: /Veg only/ }).click();
-  await expect(page.locator('.vmark.nv')).toHaveCount(0);
-  await page.getByRole('button', { name: /Veg only/ }).click();
+  await page.getByRole('group', { name: 'Menu categories' }).getByRole('button', { name: 'Momos', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Fried Chilli Momos' })).toBeInViewport();
 
   await page.getByRole('searchbox', { name: 'Search dishes' }).fill('pizza');
   await expect(page.getByText('No dishes match')).toBeVisible();
@@ -23,20 +23,20 @@ test('menu loads fast with categories, search and veg filter', async ({ page }) 
 
 test('cart survives a reload and the bill is right', async ({ page }) => {
   await page.goto('/');
-  await addItem(page, 'Odia Veg Thali', 2);
-  await addItem(page, 'Chhena Poda');
-  await expect(page.locator('.cartbar')).toContainText('3 items · ₹420');
+  await addItem(page, 'Paneer Masala', 2);
+  await addItem(page, 'Jeera Rice');
+  await expect(page.locator('.cartbar')).toContainText('3 items · ₹470');
   await page.reload();
-  await expect(page.locator('.cartbar')).toContainText('3 items · ₹420');
+  await expect(page.locator('.cartbar')).toContainText('3 items · ₹470');
   await page.locator('.cartbar').click();
-  await expect(page.locator('.line.total')).toContainText('₹420'); // free delivery above ₹399
-  await page.getByRole('button', { name: 'Remove one Odia Veg Thali' }).click();
-  await expect(page.locator('.line.total')).toContainText('₹265'); // 240 + 25 delivery
+  await expect(page.locator('.line.total')).toContainText('₹470'); // free delivery above ₹399
+  await page.getByRole('button', { name: 'Remove one Paneer Masala' }).click();
+  await expect(page.locator('.line.total')).toContainText('₹310'); // 285 + 25 delivery
 });
 
 test('checkout validates name, phone, address and pin', async ({ page }) => {
   await page.goto('/');
-  await addItem(page, 'Odia Veg Thali');
+  await addItem(page, 'Paneer Masala');
   await page.locator('.cartbar').click();
   await page.locator('#place-order').click();
   await expect(page.getByText('Enter your name')).toBeVisible();
@@ -50,7 +50,7 @@ test('checkout validates name, phone, address and pin', async ({ page }) => {
 
 test('use my current location drops the pin and shows the area', async ({ page }) => {
   await page.goto('/');
-  await addItem(page, 'Dalma Bhata');
+  await addItem(page, 'Veg Biryani');
   await page.locator('.cartbar').click();
   await page.getByRole('button', { name: /Use my current location/ }).click();
   await expect(page.getByText('Near Farm Road')).toBeVisible();
@@ -59,7 +59,7 @@ test('use my current location drops the pin and shows the area', async ({ page }
 
 test('tapping the map moves the pin', async ({ page }) => {
   await page.goto('/');
-  await addItem(page, 'Dalma Bhata');
+  await addItem(page, 'Veg Biryani');
   await page.locator('.cartbar').click();
   const map = page.getByRole('application', { name: /choose your delivery location/ });
   await expect(map.locator('.leaflet-tile-pane')).toBeAttached();
@@ -71,7 +71,7 @@ test('minimum order and too-far addresses block checkout', async ({ page }) => {
   await page.goto('/');
   await setProfile(page, { name: 'Test', phone: '9861000000', address: 'Somewhere far away road', location: PLACES.far });
   await page.reload();
-  await addItem(page, 'Masala Lemon Soda');
+  await addItem(page, 'Tawa Roti (each)');
   await page.locator('.cartbar').click();
   await expect(page.getByText(/Minimum order is ₹99/)).toBeVisible();
   await expect(page.getByText(/Too far/)).toBeVisible();
@@ -82,7 +82,7 @@ test('place an order, see live tracking, cancel it', async ({ page }) => {
   await page.goto('/');
   await setProfile(page, { name: 'Priya Sahu', phone: '98610 41221', address: 'Near Ainthapali Chowk, blue gate', location: PLACES.ainthapali });
   await page.reload();
-  await addItem(page, 'Chicken Kassa');
+  await addItem(page, 'Kaju Curry');
   await page.locator('.cartbar').click();
   await page.getByLabel('Cooking note (optional)').fill('less spicy');
   await page.locator('#place-order').click();
@@ -105,7 +105,7 @@ test('Odia language toggle', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Change language' }).click();
   await expect(page.getByRole('searchbox')).toHaveAttribute('placeholder', 'ଖାଦ୍ୟ ଖୋଜନ୍ତୁ');
-  await expect(page.getByText('ଡାଲମା ଭାତ')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paneer Masala' })).toBeVisible();
 });
 
 test('closed kitchen shows when it opens and blocks ordering', async ({ page, context }) => {

@@ -6,12 +6,12 @@ export function VegMark({ veg }: { veg: boolean }) {
   return <span class={`vmark ${veg ? '' : 'nv'}`} role="img" aria-label={veg ? 'Veg' : 'Non-veg'} title={veg ? 'Veg' : 'Non-veg'} />;
 }
 
-export function Stepper({ qty, onChange, label }: { qty: number; onChange: (q: number) => void; label: string }) {
+export function Stepper({ qty, onChange, label, max = 20 }: { qty: number; onChange: (q: number) => void; label: string; max?: number }) {
   return (
     <div class="stepper" role="group" aria-label={`Quantity of ${label}`}>
       <button type="button" onClick={() => onChange(qty - 1)} aria-label={`Remove one ${label}`}>−</button>
       <span aria-live="polite">{qty}</span>
-      <button type="button" onClick={() => onChange(qty + 1)} aria-label={`Add one more ${label}`} disabled={qty >= 20}>+</button>
+      <button type="button" onClick={() => onChange(qty + 1)} aria-label={`Add one more ${label}`} disabled={qty >= max}>+</button>
     </div>
   );
 }

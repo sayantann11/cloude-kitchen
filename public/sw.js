@@ -4,7 +4,7 @@
  * - Map tiles: cache-first with a size cap.
  * - Firebase / Google APIs: never touched (Firestore has its own offline cache).
  */
-const VERSION = 'mk-v1';
+const VERSION = 'mk-v2';
 const SHELL = `${VERSION}-shell`;
 const ASSETS = `${VERSION}-assets`;
 const TILES = `${VERSION}-tiles`;
@@ -30,11 +30,12 @@ self.addEventListener('fetch', e => {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
+    // Customer app and admin portal are different pages: cache each shell under its own key.
+    const key = url.pathname === '/admin' || url.pathname.startsWith('/admin/') ? '/admin' : '/';
     e.respondWith(fetch(req).then(res => {
-      const copy = res.clone();
-      caches.open(SHELL).then(c => c.put('/', copy));
+      if (res.ok) { const copy = res.clone(); caches.open(SHELL).then(c => c.put(key, copy)); }
       return res;
-    }).catch(() => caches.match('/', { cacheName: SHELL }).then(r => r || Response.error())));
+    }).catch(() => caches.match(key, { cacheName: SHELL }).then(r => r || Response.error())));
     return;
   }
   if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {

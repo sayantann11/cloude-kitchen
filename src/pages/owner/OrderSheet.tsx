@@ -22,7 +22,12 @@ export async function act(fn: () => Promise<void>, ok?: string) {
 export function accept(o: Order, prepMin: number) {
   const t = Date.now();
   // Promise can't be earlier than prep + travel; keep the customer's promise unless prep pushes it later.
-  return act(() => store.value!.updateOrder(o.id, { status: 'accepted', acceptedAt: t, prepMin }), `Accepted ${o.code}`);
+  return act(async () => {
+    await store.value!.updateOrder(o.id, { status: 'accepted', acceptedAt: t, prepMin });
+    // Counted stock goes down only once the kitchen commits to cooking it.
+    const gone = await store.value!.takeStock(o.lines).catch(() => [] as string[]);
+    notify(gone.length ? `Accepted ${o.code}. Now sold out: ${gone.join(', ')}` : `Accepted ${o.code}`);
+  });
 }
 export const markReady = (o: Order) => act(() => store.value!.updateOrder(o.id, { status: 'ready', readyAt: Date.now() }), `${o.code} packed`);
 

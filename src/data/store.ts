@@ -1,4 +1,4 @@
-import type { Menu, Order, PayState, Settings, Trip, TripStop } from './types';
+import type { Menu, Order, OrderLine, PayState, Settings, Trip, TripStop } from './types';
 
 export type Unsub = () => void;
 
@@ -30,6 +30,8 @@ export interface DataStore {
   ownerSignOut(): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   saveMenu(m: Menu): Promise<void>;
+  /** Reduce counted stock for accepted lines; returns dishes that just sold out. */
+  takeStock(lines: Pick<OrderLine, 'id' | 'qty'>[]): Promise<string[]>;
   watchOrdersSince(sinceMs: number, cb: (o: Order[]) => void): Unsub;
   updateOrder(id: string, patch: Partial<Order>): Promise<void>;
   /** Atomically create the trip and mark its orders "out". */

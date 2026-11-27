@@ -1,6 +1,6 @@
-# Mahanadi Kitchen (cloude-kitchen)
+# The Night Kitchen (cloude-kitchen)
 
-Ordering app + kitchen dashboard for a cloud kitchen in Sambalpur, with **smart order grouping**: orders placed within 30–50 minutes on the same side of town go out with one rider, on the shortest route, and only if nobody's food arrives late.
+Pure-veg ordering app + separate admin portal for a cloud kitchen in Sambalpur, with **smart order grouping**: orders placed within 30–50 minutes on the same side of town go out with one rider, on the shortest route, and only if nobody's food arrives late.
 
 Built for **₹0/month** hosting at 30–40 orders a night (Firebase free plan).
 
@@ -8,15 +8,15 @@ Built for **₹0/month** hosting at 30–40 orders a night (Firebase free plan).
 
 | Who | Screen | What they can do |
 | --- | --- | --- |
-| Customer | `/` Menu | Search, veg-only filter, categories, bestseller tags, sold-out items, "order again", Odia/English |
+| Customer | `/` Menu | Full menu card (103 dishes, 13 sections), search, categories, offer prices, "only N left", sold-out items, "order again", Odia/English |
 | Customer | `/checkout` | Cart, cooking note, map pin + "use my location", saved address, min order / free delivery / outer zone fees, cash / UPI on delivery / pay-now UPI |
 | Customer | `/order/:id` | Live status, arrival time, rider name + call, cancel before accept, UPI pay link + "I have paid", call/WhatsApp kitchen, reorder |
 | Customer | `/orders` | Order history on this phone |
-| Owner | `/kitchen` | New-order chime + vibration + notification, accept with prep time, reject with reason, mark packed, **grouped trip suggestions with savings**, route map, Google Maps navigation, send to rider over WhatsApp, pause orders, keep screen on, print KOT |
-| Owner | `/kitchen/trips` | Riders on the road, stop progress, cash collected, end trip |
-| Owner | `/kitchen/menu` | Add / edit / delete dishes, sold-out switch, categories and their order |
-| Owner | `/kitchen/reports` | Sales, cash vs UPI, on-time %, km saved, top dishes, top areas, orders by hour, CSV download |
-| Owner | `/kitchen/settings` | Name, phone, kitchen location, hours per day, fees, zones, promise times, grouping rules, UPI ID, riders |
+| Admin | `/admin` | New-order chime + vibration + notification, accept with prep time, reject with reason, mark packed, **grouped trip suggestions with savings**, route map, Google Maps navigation, send to rider over WhatsApp, pause orders, keep screen on, print KOT |
+| Admin | `/admin/trips` | Riders on the road, stop progress, cash collected, end trip |
+| Admin | `/admin/menu` | Add / edit / delete / hide dishes, change price in place, bulk price change (% or ₹, by category), offer price, stock count per dish (auto sold out at 0, low-stock alerts), sold-out switch, photo link, categories and their order |
+| Admin | `/admin/reports` | Sales, cash vs UPI, on-time %, km saved, top dishes, top areas, orders by hour, CSV download |
+| Admin | `/admin/settings` | Name, phone, kitchen location, hours per day, fees, zones, promise times, grouping rules, UPI ID, riders |
 | Rider | `/rider/:tripId` | Stop list from the WhatsApp link, call customer, navigate, mark delivered + cash/UPI collected. Works with weak signal |
 
 ## Tech (chosen for speed and ₹0 hosting)
@@ -36,7 +36,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. With no Firebase keys it runs in **demo mode** (data stays in the browser). Kitchen login in demo mode: `owner@demo.local` / `kitchen123` (pre-filled).
+Open http://localhost:5173 (customers) and http://localhost:5173/admin (owner). With no Firebase keys it runs in **demo mode** (data stays in the browser). Admin login in demo mode: `owner@demo.local` / `kitchen123` (pre-filled).
 
 Try it on your phone on the same Wi-Fi:
 
@@ -47,13 +47,23 @@ npx vite preview --host
 
 Then open the "Network" address it prints on your phone.
 
+## Admin portal is separate
+
+- Customers use `/`. The owner uses **`/admin`**: a different page (`admin.html`) with its own app icon ("NK Admin", installable on the owner's phone).
+- Nothing in the customer app links to it, customers never download its code, and it is hidden from Google (`noindex`, `robots.txt`).
+- Even if someone finds the address, they only see a login. Orders, customer details and menu changes are locked to accounts listed in Firestore `owners/{uid}` (`firestore.rules`).
+
+### Stock
+
+Leave a dish's stock empty to not count it (just use the On/Off switch). Type a number (e.g. 20 portions) to count it: customers can't order more than what's left, they see "Only 3 left" near the end, the count goes down when you **accept** an order, and the dish turns sold out by itself at 0. The Menu tab shows a badge for dishes running low. "Reset sold out" switches everything back on at the start of a night.
+
 ## Tests
 
 ```powershell
 npm run check
 ```
 
-Runs the type-check, 35 unit tests (batching, routing, prices, hours, validation), the production build, and 16 browser tests in Edge at phone size covering the full night: customer orders → kitchen accepts → orders grouped → rider delivers → customer sees "Delivered" live. Use `$env:PW_CHANNEL="chrome"` to test in Chrome. `$env:SCREENS=1; npx playwright test screens` saves screenshots of every screen to `test-results/screens`.
+Runs the type-check, 40 unit tests (batching, routing, prices, stock, hours, validation), the production build, and 19 browser tests in Edge at phone size covering the full night: customer orders → kitchen accepts → orders grouped → rider delivers → customer sees "Delivered" live, plus stock, price changes and the separate admin portal. Use `$env:PW_CHANNEL="chrome"` to test in Chrome. `$env:SCREENS=1; npx playwright test screens` saves screenshots of every screen to `test-results/screens`.
 
 ## Go live on Firebase (free) — about 20 minutes
 
@@ -70,7 +80,7 @@ Runs the type-check, 35 unit tests (batching, routing, prices, hours, validation
    ```
 
    This builds the app and uploads the site, the security rules and the database index. The site is live at `https://<project-id>.web.app`.
-7. **First login**: open `/kitchen`, log in, go to **Settings**: set the real kitchen name, phone, WhatsApp, kitchen location on the map, hours, UPI ID and riders → **Save**. Then **Menu**: fix dishes and prices.
+7. **First login**: open `/admin`, log in, go to **Settings**: set the real kitchen name, phone, WhatsApp, kitchen location on the map, hours, UPI ID and riders → **Save**. Then **Menu**: fix dishes and prices.
 8. **Share** the link on WhatsApp / Instagram / a QR code on the packaging. Customers can "Add to Home screen".
 
 ### Auto-deploy from GitHub (optional, free)
@@ -102,7 +112,8 @@ Distances are straight-line × 1.35 at 20 km/h plus 3 minutes per handover, tune
 src/lib/        engine (batching + routes), pricing, hours, validation, UPI links  ← pure, tested
 src/data/       DataStore interface, LocalStore (demo/tests), FirebaseStore (live), seed menu
 src/state/      app state (signals), router, Odia strings
-src/pages/      customer/, owner/, rider/
+src/pages/      customer/, owner/ (admin portal), rider/
+admin.html      admin portal page (/admin), src/admin.tsx its entry
 e2e/            Playwright browser tests
 firestore.rules who may read/write what
 demo/           the original clickable UI demo
@@ -110,7 +121,8 @@ demo/           the original clickable UI demo
 
 ## Before launch checklist
 
-- [ ] Real menu, prices, kitchen phone/WhatsApp, UPI ID and riders entered in Settings
+- [ ] Menu prices confirmed (the menu card says its prices are suggestions), kitchen phone/WhatsApp, UPI ID and riders entered in Settings
+- [ ] Opening hours set (default 6 pm–11:30 pm)
 - [ ] Kitchen location pinned exactly (routes start there)
 - [ ] Odia text reviewed by a native speaker (`src/state/i18n.ts`, Odia dish names in Menu)
 - [ ] Place 2–3 real test orders end to end on actual phones

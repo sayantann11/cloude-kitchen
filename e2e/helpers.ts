@@ -24,10 +24,13 @@ export async function setProfile(page: Page, p: { name: string; phone: string; a
   await page.evaluate(v => localStorage.setItem('mk:profile', JSON.stringify(v)), p);
 }
 
+/** A dish card on the customer menu, by its exact name. */
+export const dishCard = (page: Page, name: string) => page.locator('.item').filter({ has: page.locator('.nm').getByText(name, { exact: true }) });
+
 export async function addItem(page: Page, name: string, times = 1) {
-  const card = page.locator('.item', { has: page.getByRole('heading', { name, exact: false }) }).first();
-  await card.getByRole('button', { name: new RegExp(`^Add ${escapeRe(name)}`) }).click();
-  for (let i = 1; i < times; i++) await card.getByRole('button', { name: new RegExp(`Add one more ${escapeRe(name)}`) }).click();
+  const card = dishCard(page, name);
+  await card.getByRole('button', { name: `Add ${name}`, exact: true }).click();
+  for (let i = 1; i < times; i++) await card.getByRole('button', { name: `Add one more ${name}`, exact: true }).click();
 }
 
 export async function placeOrder(page: Page, opts: { name: string; phone: string; address: string; location: { lat: number; lng: number }; items: [string, number][]; pay?: RegExp }) {
@@ -46,9 +49,8 @@ export async function placeOrder(page: Page, opts: { name: string; phone: string
 }
 
 export async function kitchenLogin(page: Page) {
-  await page.goto('/kitchen');
+  await page.goto('/admin');
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.getByRole('heading', { name: /New orders/ })).toBeAttached();
 }
 
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

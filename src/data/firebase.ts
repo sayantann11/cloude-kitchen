@@ -18,7 +18,8 @@ import {
 import { SEED_MENU, SEED_SETTINGS } from './seed';
 import type { DataStore, OwnerSession, Unsub } from './store';
 import { payAfter } from './store';
-import type { Menu, Order, Settings, Trip, TripStop } from './types';
+import type { Menu, Order, OrderLine, Settings, Trip, TripStop } from './types';
+import { applyStock } from '../lib/pricing';
 
 /** Firestore rejects `undefined`; strip it recursively. */
 function clean<T>(v: T): T {
@@ -134,6 +135,15 @@ export class FirebaseStore implements DataStore {
   }
   async saveMenu(m: Menu) {
     await setDoc(doc(this.db, 'public', 'menu'), clean({ ...m, updatedAt: Date.now() }));
+  }
+  async takeStock(lines: Pick<OrderLine, 'id' | 'qty'>[]) {
+    const ref = doc(this.db, 'public', 'menu');
+    return runTransaction(this.db, async tx => {
+      const snap = await tx.get(ref);
+      const r = applyStock((snap.data() as Menu | undefined) ?? SEED_MENU, lines);
+      if (r.changed) tx.set(ref, clean({ ...r.menu, updatedAt: Date.now() }));
+      return r.soldOut;
+    });
   }
   watchOrdersSince(since: number, cb: (o: Order[]) => void): Unsub {
     const q = query(collection(this.db, 'orders'), where('placedAt', '>=', since), orderBy('placedAt', 'desc'));

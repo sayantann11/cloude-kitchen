@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SEED_MENU, SEED_SETTINGS } from '../data/seed';
 import { openState, istParts, fmtHHMM } from './hours';
-import { cleanCart, quote } from './pricing';
+import { applyStock, bulkPrice, cleanCart, maxQty, quote, sellable } from './pricing';
 import { PLACES, nearestPlace } from './geo';
 import { normalizePhone, validateCheckout, isUpiId, isUtr, cleanText } from './validate';
 import { upiLink } from './upi';
@@ -14,38 +14,80 @@ const ist = (y: number, mo: number, d: number, h: number, mi = 0) => Date.UTC(y,
 
 describe('pricing', () => {
   it('adds delivery fee below the free threshold', () => {
-    const q = quote({ vthali: 1 }, items, S, PLACES['Farm Road']);
-    expect(q.subtotal).toBe(180);
+    const q = quote({ 'paneer-masala': 1 }, items, S, PLACES['Farm Road']);
+    expect(q.subtotal).toBe(185);
     expect(q.deliveryFee).toBe(25);
-    expect(q.total).toBe(205);
-    expect(q.freeDeliveryGap).toBe(219);
+    expect(q.total).toBe(210);
+    expect(q.freeDeliveryGap).toBe(214);
     expect(q.outerZone).toBe(false);
   });
   it('free delivery at or above the threshold', () => {
-    const q = quote({ vthali: 2, chhenapoda: 1 }, items, S, PLACES['Farm Road']);
-    expect(q.subtotal).toBe(420);
+    const q = quote({ 'paneer-masala': 2, 'jeera-rice': 1 }, items, S, PLACES['Farm Road']);
+    expect(q.subtotal).toBe(470);
     expect(q.deliveryFee).toBe(0);
   });
   it('outer zone adds a fee and a longer promise', () => {
-    const q = quote({ vthali: 3 }, items, S, PLACES.Burla);
+    const q = quote({ 'paneer-masala': 3 }, items, S, PLACES.Burla);
     expect(q.outerZone).toBe(true);
     expect(q.deliveryFee).toBe(40);
     expect(q.promiseMin).toBe(75);
   });
   it('flags minimum order and sold-out items', () => {
-    const sold = items.map(i => i.id === 'lassi' ? { ...i, available: false } : i);
-    const q = quote({ soda: 1, lassi: 2, ghost: 1 }, sold, S, null);
+    const sold = items.map(i => i.id === 'green-salad' ? { ...i, available: false } : i);
+    const q = quote({ 'tawa-roti-each': 1, 'green-salad': 2, ghost: 1 }, sold, S, null);
     expect(q.belowMin).toBe(true);
-    expect(q.shortBy).toBe(69);
-    expect(q.missing).toEqual(['Sweet Lassi (300 ml)', 'ghost']);
+    expect(q.shortBy).toBe(87);
+    expect(q.missing).toEqual(['Green Salad', 'ghost']);
     expect(q.lines).toHaveLength(1);
   });
   it('clamps quantities and drops junk', () => {
-    expect(cleanCart({ vthali: 99, ghost: 2, soda: 0, dalma: 1.7 }, items)).toEqual({ vthali: 20, dalma: 1 });
-    expect(quote({ vthali: -3 }, items, S, null).count).toBe(0);
+    expect(cleanCart({ 'veg-roll': 99, ghost: 2, 'veg-wrap': 0, 'dal-fry': 1.7 }, items)).toEqual({ 'veg-roll': 20, 'dal-fry': 1 });
+    expect(quote({ 'veg-roll': -3 }, items, S, null).count).toBe(0);
   });
   it('rejects addresses beyond max delivery distance', () => {
-    expect(quote({ vthali: 1 }, items, S, { lat: 21.7, lng: 84.2 }).tooFar).toBe(true);
+    expect(quote({ 'veg-roll': 1 }, items, S, { lat: 21.7, lng: 84.2 }).tooFar).toBe(true);
+  });
+});
+
+describe('menu card + stock', () => {
+  it('loads the full Night Kitchen menu, all veg, unique ids', () => {
+    expect(items.length).toBe(103);
+    expect(new Set(items.map(i => i.id)).size).toBe(items.length);
+    expect(items.every(i => i.veg && i.price > 0 && SEED_MENU.categories.includes(i.category))).toBe(true);
+    expect(items.find(i => i.name === 'Nizami Deewani Handi')?.price).toBe(225);
+    expect(items.find(i => i.name === 'Tawa Roti (each)')?.price).toBe(12);
+  });
+  it('hidden, switched off and zero stock are not sellable', () => {
+    const base = items[0];
+    expect(sellable(base)).toBe(true);
+    expect(sellable({ ...base, hidden: true })).toBe(false);
+    expect(sellable({ ...base, available: false })).toBe(false);
+    expect(sellable({ ...base, stock: 0 })).toBe(false);
+    expect(sellable({ ...base, stock: null })).toBe(true);
+    expect(maxQty({ ...base, stock: 3 })).toBe(3);
+    expect(maxQty({ ...base, stock: null })).toBe(20);
+  });
+  it('caps cart quantity at the stock left', () => {
+    const its = items.map(i => i.id === 'veg-roll' ? { ...i, stock: 2 } : i);
+    const q = quote({ 'veg-roll': 5 }, its, S, null);
+    expect(q.lines[0].qty).toBe(2);
+    expect(q.capped).toEqual(['Veg Roll']);
+  });
+  it('accepting an order takes stock and reports dishes that sold out', () => {
+    const m = { ...SEED_MENU, items: items.map(i => i.id === 'veg-roll' ? { ...i, stock: 2 } : i.id === 'dal-fry' ? { ...i, stock: 10 } : i) };
+    const r = applyStock(m, [{ id: 'veg-roll', qty: 2 }, { id: 'dal-fry', qty: 1 }, { id: 'jeera-rice', qty: 4 }]);
+    expect(r.soldOut).toEqual(['Veg Roll']);
+    expect(r.menu.items.find(i => i.id === 'veg-roll')?.stock).toBe(0);
+    expect(r.menu.items.find(i => i.id === 'dal-fry')?.stock).toBe(9);
+    expect(r.menu.items.find(i => i.id === 'jeera-rice')?.stock).toBeUndefined(); // not counted
+    expect(applyStock(SEED_MENU, [{ id: 'jeera-rice', qty: 1 }]).changed).toBe(false);
+  });
+  it('bulk price change rounds and never goes below ₹1', () => {
+    expect(bulkPrice(185, 'pct', 10, 5)).toBe(205);
+    expect(bulkPrice(100, 'pct', 10, 1)).toBe(110);
+    expect(bulkPrice(149, 'rs', 10)).toBe(159);
+    expect(bulkPrice(12, 'rs', -20)).toBe(1);
+    expect(bulkPrice(99, 'pct', -10, 10)).toBe(90);
   });
 });
 
@@ -108,7 +150,7 @@ describe('validation', () => {
 
 describe('misc', () => {
   it('UPI link', () => {
-    const u = upiLink({ upiId: 'k@okaxis', name: 'Mahanadi Kitchen', amount: 205, note: 'Order K7Q2', ref: 'K7Q2' });
+    const u = upiLink({ upiId: 'k@okaxis', name: 'The Night Kitchen', amount: 205, note: 'Order K7Q2', ref: 'K7Q2' });
     expect(u.startsWith('upi://pay?')).toBe(true);
     expect(u).toContain('pa=k%40okaxis');
     expect(u).toContain('am=205.00');
