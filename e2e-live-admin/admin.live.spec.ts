@@ -159,7 +159,7 @@ test('live night: orders → reject → accept → grouped trip → rider delive
   await price.fill('199'); await price.press('Enter');
   await expect(k.getByText('Paneer Masala: ₹185 → ₹199')).toBeVisible();
   await find.fill('dal fry');
-  await k.getByRole('switch', { name: 'On' }).first().uncheck();
+  await row(k, 'Dal Fry').getByRole('switch').uncheck();
   await expect(row(k, 'Dal Fry')).toContainText('Sold out');
   await customer.goto('/');
   await expect(card(customer, 'Veg Biryani')).toContainText('Only 2 left');
