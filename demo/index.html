@@ -1,0 +1,682 @@
+<title>Mahanadi Kitchen Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: app shell with a sticky top bar; customer side = one phone-width column, owner side = batches list + route panel side by side, stacked on phones. */
+:root {
+  --bg: #f3f5f1; --surface: #ffffff; --sunk: #e9ede6; --ink: #13201b; --muted: #5a6962; --line: #dbe1d8;
+  --brand: #0d5c50; --brand-soft: #dcefe9; --on-brand: #ffffff;
+  --accent: #c97d06; --accent-soft: #fbefd9;
+  --veg: #1d8a3a; --nonveg: #b3261e; --good: #1d7a45; --good-soft: #def3e5; --warn: #a35f00; --warn-soft: #fcecd2; --crit: #b3261e;
+  --map: #eaeee6; --river: #b9d7e6; --road: #cfd6cb; --mapink: #6b7a72;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r: 12px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1412; --surface: #161f1c; --sunk: #1c2723; --ink: #e6ece8; --muted: #9aaaa2; --line: #2a3632;
+  --brand: #46b8a2; --brand-soft: #173a33; --on-brand: #06211c;
+  --accent: #f0a93a; --accent-soft: #3a2c12;
+  --veg: #4cc06a; --nonveg: #f06a5f; --good: #5bd08a; --good-soft: #17352a; --warn: #f0b04a; --warn-soft: #3a2c12; --crit: #f06a5f;
+  --map: #131b18; --river: #1c3a4b; --road: #2b3833; --mapink: #8d9c95; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #161f1c; --sunk: #1c2723; --ink: #e6ece8; --muted: #9aaaa2; --line: #2a3632;
+  --brand: #46b8a2; --brand-soft: #173a33; --on-brand: #06211c;
+  --accent: #f0a93a; --accent-soft: #3a2c12;
+  --veg: #4cc06a; --nonveg: #f06a5f; --good: #5bd08a; --good-soft: #17352a; --warn: #f0b04a; --warn-soft: #3a2c12; --crit: #f06a5f;
+  --map: #131b18; --river: #1c3a4b; --road: #2b3833; --mapink: #8d9c95; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Top bar with a Sambalpuri bandha (ikat) strip */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.bandha { height: 6px; background:
+  conic-gradient(from 45deg at 50% 50%, var(--accent) 0 25%, transparent 0 50%, var(--accent) 0 75%, transparent 0) 0 0 / 12px 6px,
+  var(--brand); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.logo { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: 18px; flex: none; }
+.brand b { font-family: var(--f-display); font-size: 17px; display: block; line-height: 1.1; }
+.brand small { color: var(--muted); font-size: 12px; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font-weight: 600; font-size: 13.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.demo-note { font-size: 12px; color: var(--muted); padding-block: 6px; border-bottom: 1px dashed var(--line); }
+
+main { padding-block: 18px 110px; }
+
+/* ---------- Customer ---------- */
+.cust { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
+.hello { display: grid; gap: 6px; }
+.hello h1 { font-size: 26px; font-weight: 800; }
+.chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--sunk); font-size: 12.5px; color: var(--muted); }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.brand { background: var(--brand-soft); color: var(--brand); }
+.cats { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.cats button { flex: none; border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; }
+.cats button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.menu-sec { display: grid; gap: 10px; }
+.menu-sec h2 { font-size: 18px; margin-top: 6px; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
+.item > div { min-width: 0; }
+.item h3 { font-family: var(--f-body); font-size: 15.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.item p { margin: 2px 0 6px; font-size: 13px; color: var(--muted); }
+.price { font-weight: 600; font-variant-numeric: tabular-nums; }
+.vmark { width: 14px; height: 14px; border: 1.5px solid var(--veg); border-radius: 3px; display: inline-grid; place-items: center; flex: none; }
+.vmark::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--veg); }
+.vmark.nv { border-color: var(--nonveg); }
+.vmark.nv::after { background: none; width: 0; height: 0; border-radius: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid var(--nonveg); }
+.tag { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 7px; border-radius: 6px; }
+.add { border: 1px solid var(--brand); color: var(--brand); background: var(--surface); font-weight: 700; padding: 7px 18px; border-radius: 10px; letter-spacing: .04em; }
+.stepper { display: inline-flex; align-items: center; border-radius: 10px; background: var(--brand); color: var(--on-brand); }
+.stepper button { border: 0; background: transparent; color: inherit; width: 34px; height: 36px; font-size: 18px; font-weight: 700; }
+.stepper span { min-width: 18px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.cartbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+.cartbar button { width: 100%; max-width: 560px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; border: 0; background: var(--brand); color: var(--on-brand); padding: 14px 18px; border-radius: 14px; font-weight: 600; font-size: 15px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card h2 { font-size: 18px; }
+.lines { display: grid; gap: 6px; font-size: 14px; }
+.line { display: flex; justify-content: space-between; gap: 12px; }
+.line.total { font-weight: 700; border-top: 1px solid var(--line); padding-top: 8px; }
+label.f { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+label.f span { font-weight: 400; color: var(--muted); }
+input[type=text], input[type=tel], textarea, select { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+textarea { resize: vertical; min-height: 64px; }
+.pay { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pay label { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.pay label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.btn { border: 0; background: var(--brand); color: var(--on-brand); padding: 13px 18px; border-radius: 12px; font-weight: 600; font-size: 15px; text-align: center; text-decoration: none; display: inline-flex; justify-content: center; align-items: center; gap: 8px; }
+.btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.btn.small { padding: 8px 12px; font-size: 13.5px; border-radius: 10px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.link { border: 0; background: none; color: var(--brand); font-weight: 600; padding: 0; }
+
+.mapbox { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--map); position: relative; }
+.mapbox svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
+.mapbox.pick svg { cursor: crosshair; }
+.maphint { position: absolute; left: 8px; bottom: 8px; font-size: 11.5px; background: var(--surface); color: var(--muted); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.steps li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding-bottom: 14px; position: relative; }
+.steps li::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); margin: 5px 0 0 3px; z-index: 1; }
+.steps li::after { content: ""; position: absolute; left: 9px; top: 18px; bottom: 0; width: 2px; background: var(--line); }
+.steps li:last-child::after { display: none; }
+.steps li.done::before { background: var(--brand); border-color: var(--brand); }
+.steps li.now::before { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.steps b { display: block; font-size: 14.5px; }
+.steps small { color: var(--muted); font-size: 12.5px; }
+.callout { background: var(--brand-soft); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+
+/* ---------- Owner ---------- */
+.own { display: grid; gap: 16px; }
+.own-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+.own-head h1 { font-size: 24px; font-weight: 800; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.kpi small { font-size: 12px; color: var(--muted); display: block; }
+.kpi b { font-family: var(--f-display); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.kpi b em { font-style: normal; font-size: 14px; color: var(--muted); font-weight: 600; margin-left: 2px; }
+.kpi.hl b { color: var(--good); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; font-size: 13.5px; }
+.controls label { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.controls input[type=range] { width: 140px; accent-color: var(--brand); }
+.controls .sp { flex: 1; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+.stack { display: grid; gap: 12px; min-width: 0; }
+.sec-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sec-title h2 { font-size: 16px; }
+.sec-title small { color: var(--muted); font-size: 12.5px; }
+.batch { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; text-align: left; width: 100%; position: relative; }
+.batch.multi { border-left: 4px solid var(--brand); }
+.batch.solo { border-left: 4px solid var(--line); }
+.batch[aria-current="true"] { box-shadow: 0 0 0 2px var(--brand); }
+.batch-h { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.batch-h b { font-family: var(--f-display); font-size: 16px; }
+.olist { display: grid; gap: 6px; }
+.orow { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13.5px; }
+.orow > div { min-width: 0; }
+.orow .n { width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.solo .orow .n { background: var(--muted); }
+.orow .who { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.orow .where { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.age { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+.new-dot { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--on-brand); background: var(--accent); padding: 0 6px; border-radius: 5px; margin-left: 4px; vertical-align: 1px; }
+.save { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.save b { font-variant-numeric: tabular-nums; }
+.save .good { color: var(--good); font-weight: 700; }
+.bact { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.legs { display: grid; gap: 0; }
+.leg { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.leg:last-child { border-bottom: 0; }
+.leg .n { width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.leg .n.k { background: var(--ink); color: var(--bg); }
+.leg .n.r { background: var(--sunk); color: var(--muted); }
+.leg b { font-size: 14px; }
+.leg .addr { font-size: 12.5px; color: var(--muted); }
+.leg .ph { font-size: 12.5px; }
+.leg .t { text-align: right; font-size: 13px; white-space: nowrap; }
+.leg .t small { display: block; color: var(--muted); font-size: 11.5px; }
+.ok { color: var(--good); font-weight: 600; }
+.late { color: var(--crit); font-weight: 600; }
+.road-list { display: grid; gap: 8px; }
+.road-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; font-size: 13.5px; flex-wrap: wrap; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 40; max-width: calc(100% - 32px); }
+.empty { text-align: center; color: var(--muted); padding: 28px 12px; font-size: 14px; }
+textarea.copybox { font-family: var(--f-mono); font-size: 12px; }
+
+@media (max-width: 860px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .seg button { padding: 7px 11px; }
+  .brand small { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .batch, .add, .btn { transition: box-shadow .15s, transform .1s; }
+  .btn:active, .add:active { transform: scale(.98); }
+}
+</style>
+
+<header class="top">
+  <div class="bandha" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">M</div>
+      <div><b>Mahanadi Kitchen</b><small>Cloud kitchen · Sambalpur</small></div>
+    </div>
+    <div class="seg" role="group" aria-label="Switch view">
+      <button id="tab-customer" type="button" data-mode="customer">Order food</button>
+      <button id="tab-owner" type="button" data-mode="owner">Kitchen owner</button>
+    </div>
+  </div>
+</header>
+<div class="wrap demo-note">UI demo: orders, map and riders are simulated. Brand name, menu and prices are placeholders.</div>
+
+<main class="wrap" id="app"></main>
+<div id="cartbar"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ======================= Data ======================= */
+const MENU = [
+  { cat: 'Odia specials', items: [
+    { id: 'dalma', n: 'Dalma Bhata', d: 'Toor dal with raw papaya, pumpkin and ghee tadka, steamed rice', p: 130, v: true, tag: 'Bestseller' },
+    { id: 'besara', n: 'Machha Besara', d: 'Rohu in mustard gravy, Odia home style', p: 220, v: false },
+    { id: 'kassa', n: 'Chicken Kassa', d: 'Slow-cooked dry chicken, onion and whole spices', p: 240, v: false, tag: 'Spicy' },
+    { id: 'mudhi', n: 'Mudhi Mansa', d: 'Mutton curry served with fresh puffed rice', p: 260, v: false },
+    { id: 'santula', n: 'Santula', d: 'Light mixed-vegetable stew with milk and panch phutana', p: 110, v: true },
+    { id: 'pakhala', n: 'Pakhala Bhata', d: 'Fermented water rice, badi chura, saga bhaja, fried potato', p: 140, v: true },
+  ]},
+  { cat: 'Thali', items: [
+    { id: 'vthali', n: 'Odia Veg Thali', d: 'Rice, dal, santula, saga, bhaja, khata, papad', p: 180, v: true, tag: 'Lunch pick' },
+    { id: 'fthali', n: 'Fish Thali', d: 'Veg thali with machha besara', p: 270, v: false },
+    { id: 'cthali', n: 'Chicken Thali', d: 'Veg thali with chicken kassa', p: 260, v: false },
+  ]},
+  { cat: 'Snacks', items: [
+    { id: 'gupchup', n: 'Gupchup (6 pcs)', d: 'With spicy ghuguni-potato filling and tamarind water', p: 40, v: true },
+    { id: 'dahibara', n: 'Dahibara Aloodum', d: 'Soft dahibara in curd, with spicy aloo dum', p: 60, v: true },
+    { id: 'eggroll', n: 'Egg Roll', d: 'Paratha roll, double egg, onion, sauce', p: 70, v: false },
+    { id: 'pakoda', n: 'Chicken Pakoda', d: 'Crispy boneless chicken fritters', p: 150, v: false },
+  ]},
+  { cat: 'Sweets', items: [
+    { id: 'chhenapoda', n: 'Chhena Poda', d: 'Baked caramelised cottage cheese, 2 slices', p: 60, v: true, tag: 'Must try' },
+    { id: 'rasabali', n: 'Rasabali (2 pcs)', d: 'Fried chhena discs in thickened sweet milk', p: 50, v: true },
+    { id: 'kakara', n: 'Kakara Pitha (2 pcs)', d: 'Semolina pitha with coconut-jaggery filling', p: 45, v: true },
+  ]},
+  { cat: 'Drinks', items: [
+    { id: 'lassi', n: 'Sweet Lassi', d: 'Thick curd lassi, 300 ml', p: 50, v: true },
+    { id: 'soda', n: 'Masala Lemon Soda', d: '300 ml', p: 30, v: true },
+  ]},
+];
+const ITEMS = Object.fromEntries(MENU.flatMap(c => c.items).map(i => [i.id, i]));
+
+// Approximate locality centres, for the demo only
+const PLACES = {
+  'Ainthapali': [21.4895, 83.9940], 'Farm Road': [21.4815, 83.9870], 'Bareipali': [21.5010, 83.9850],
+  'Khetrajpur': [21.4560, 83.9690], 'Budharaja': [21.4625, 83.9590], 'Dhanupali': [21.4600, 83.9930],
+  'Golebazar': [21.4690, 83.9720], 'Sakhipara': [21.4745, 83.9665], 'Modipara': [21.4720, 83.9800],
+  'Burla': [21.5050, 83.8730], 'Hirakud': [21.5190, 83.8880], 'Gopalmal': [21.4860, 83.9720],
+};
+
+/* ======================= Engine ======================= */
+const KITCHEN = { name: 'Kitchen, Modipara', lat: 21.4712, lng: 83.9795 };
+const ROAD_FACTOR = 1.35, SPEED_KMH = 20, HANDOVER_MIN = 3, PREP_MIN = 18, PROMISE_MIN = 50, NEAR_KM = 3.2, BEARING_MAX = 55;
+function hav(a, b) {
+  const R = 6371, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const road = (a, b) => hav(a, b) * ROAD_FACTOR;
+const mins = km => km / SPEED_KMH * 60;
+function bearing(a, b) {
+  const r = Math.PI / 180, y = Math.sin((b.lng - a.lng) * r) * Math.cos(b.lat * r);
+  const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lng - a.lng) * r);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
+const angDiff = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+const promiseFor = o => road(KITCHEN, o) > 8 ? 75 : PROMISE_MIN;
+function perms(arr) {
+  if (arr.length <= 1) return [arr.slice()];
+  const out = [];
+  arr.forEach((x, i) => perms(arr.slice(0, i).concat(arr.slice(i + 1))).forEach(p => out.push([x].concat(p))));
+  return out;
+}
+function planRoute(orders, now) {
+  const depart = Math.max(now, Math.max(...orders.map(o => o.placedAt + PREP_MIN)));
+  let best = null;
+  for (const p of perms(orders)) {
+    let t = depart, km = 0, prev = KITCHEN, late = 0; const legs = [];
+    for (const o of p) {
+      const d = road(prev, o); km += d; t += mins(d);
+      const promise = o.placedAt + promiseFor(o);
+      late = Math.max(late, t - promise);
+      legs.push({ order: o, km: d, eta: t, promise });
+      t += HANDOVER_MIN; prev = o;
+    }
+    const back = road(prev, KITCHEN);
+    const score = (late > 0 ? 1000 + late : 0) + km;
+    if (!best || score < best.score) best = { stops: p, legs, km, backKm: back, totalKm: km + back, depart, late, returnAt: t + mins(back), score };
+  }
+  best.soloKm = orders.reduce((s, o) => s + 2 * road(KITCHEN, o), 0);
+  best.savedKm = best.soloKm - best.totalKm;
+  best.savedMin = mins(best.savedKm);
+  best.onTime = best.late <= 0;
+  return best;
+}
+function suggestBatches(orders, windowMin, maxSize, now) {
+  const pending = orders.filter(o => o.status === 'cooking').sort((a, b) => a.placedAt - b.placedAt);
+  const used = new Set(), groups = [];
+  for (const seed of pending) {
+    if (used.has(seed.id)) continue;
+    const group = [seed]; used.add(seed.id);
+    const why = '';
+    const cands = pending.filter(c => !used.has(c.id) && c.placedAt - seed.placedAt <= windowMin).sort((a, b) => road(seed, a) - road(seed, b));
+    for (const c of cands) {
+      if (group.length >= maxSize) break;
+      const near = Math.min(...group.map(g => road(g, c)));
+      const sameWay = angDiff(bearing(KITCHEN, seed), bearing(KITCHEN, c)) <= BEARING_MAX;
+      if (near > NEAR_KM || !sameWay) continue;
+      const trial = planRoute(group.concat(c), now);
+      if (!trial.onTime) continue;
+      if (trial.savedKm <= 0.3) continue;
+      group.push(c); used.add(c.id);
+    }
+    groups.push({ orders: group, route: planRoute(group, now), why });
+  }
+  // Explain why a single order rides alone
+  for (const g of groups) {
+    if (g.orders.length > 1) continue;
+    const s = g.orders[0];
+    if (road(KITCHEN, s) > 8) { g.why = 'Outer zone, more than 8 km away'; continue; }
+    const near = pending.filter(c => c.id !== s.id && road(s, c) <= NEAR_KM && angDiff(bearing(KITCHEN, s), bearing(KITCHEN, c)) <= BEARING_MAX)
+      .sort((a, b) => road(s, a) - road(s, b));
+    if (!near.length) { g.why = 'No other order nearby in this window'; continue; }
+    const c = near[0], cg = groups.find(x => x.orders.includes(c));
+    if (Math.abs(c.placedAt - s.placedAt) > windowMin) { g.why = `Nearest order (${c.place}) is more than ${windowMin} min apart`; continue; }
+    if (cg.orders.length >= maxSize) { g.why = `The ${c.place} trip is already full`; continue; }
+    const trial = planRoute(cg.orders.concat(s), now), bad = trial.legs.find(l => l.eta > l.promise);
+    g.why = bad ? `Joining the ${c.place} trip would make ${bad.order.name.split(' ')[0]}'s food late` : 'Grouping saves almost no distance';
+  }
+  return groups;
+}
+
+/* ======================= State ======================= */
+const nowMin = () => Date.now() / 60000;
+let seq = 1040;
+function mkOrder(name, place, ago, items, phone, landmark, from = 'Phone') {
+  const [lat, lng] = PLACES[place];
+  const jitter = (s) => (Math.sin(seq * s) * 0.0012);
+  return { id: ++seq, name, place, lat: lat + jitter(7.3), lng: lng + jitter(3.1), placedAt: nowMin() - ago, status: 'cooking', items, phone, landmark, from, pay: 'Cash on delivery' };
+}
+const S = {
+  mode: 'customer', cat: 'Odia specials', cart: {}, step: 'menu', pin: null, myOrder: null,
+  windowMin: 40, maxSize: 3, sel: null, trips: [], savedTodayKm: 6.8,
+  orders: [
+    mkOrder('Priya Sahu', 'Ainthapali', 12, { vthali: 2, chhenapoda: 1 }, '98610 4xx21', 'Near Ainthapali Chowk, blue gate opposite medical store', 'App'),
+    mkOrder('Sourav Dash', 'Khetrajpur', 18, { kassa: 1, eggroll: 2 }, '70080 1xx45', 'Khetrajpur railway colony, quarter C/14', 'WhatsApp'),
+    mkOrder('Rakesh Meher', 'Farm Road', 7, { besara: 1, dalma: 1 }, '94371 6xx08', 'Farm Road, behind SBI ATM, 2nd floor', 'App'),
+    mkOrder('Manas Bhoi', 'Budharaja', 9, { mudhi: 2 }, '99370 2xx90', 'Budharaja, lane to temple steps, yellow house', 'Phone'),
+    mkOrder('Anjali Panda', 'Dhanupali', 6, { fthali: 1, lassi: 2 }, '63720 8xx13', 'Dhanupali, near water tank, house no. 112', 'App'),
+    mkOrder('Debasis Nayak', 'Burla', 5, { cthali: 3, rasabali: 2 }, '90400 3xx77', 'Burla, VSS hostel road, gate 2', 'Phone'),
+  ],
+};
+
+/* ======================= Helpers ======================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const rs = n => '₹' + n.toLocaleString('en-IN');
+const clock = m => new Date(m * 60000).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+const ago = m => { const d = Math.max(0, Math.round(nowMin() - m)); return d < 1 ? 'just now' : d + ' min ago'; };
+const km1 = k => k.toFixed(1);
+const cartCount = () => Object.values(S.cart).reduce((a, b) => a + b, 0);
+const cartTotal = () => Object.entries(S.cart).reduce((s, [id, q]) => s + ITEMS[id].p * q, 0);
+const itemsText = it => Object.entries(it).map(([id, q]) => `${q}× ${ITEMS[id].n}`).join(', ');
+const orderValue = it => Object.entries(it).reduce((s, [id, q]) => s + ITEMS[id].p * q, 0);
+function nearestPlace(p) {
+  let best = null, bd = 1e9;
+  for (const [n, [lat, lng]] of Object.entries(PLACES)) { const d = hav(p, { lat, lng }); if (d < bd) { bd = d; best = n; } }
+  return best;
+}
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+function gmaps(stops) {
+  const ll = o => `${o.lat.toFixed(5)},${o.lng.toFixed(5)}`;
+  const dest = stops.at(-1), mid = stops.slice(0, -1);
+  let u = `https://www.google.com/maps/dir/?api=1&origin=${ll(KITCHEN)}&destination=${ll(dest)}&travelmode=driving`;
+  if (mid.length) u += '&waypoints=' + encodeURIComponent(mid.map(ll).join('|'));
+  return u;
+}
+const pinLink = o => `https://www.google.com/maps/search/?api=1&query=${o.lat.toFixed(5)},${o.lng.toFixed(5)}`;
+
+/* ======================= Map (schematic SVG) ======================= */
+const L0 = 83.855, T0 = 21.525, KX = 5333.3, KY = 5731;
+const X = lng => (lng - L0) * KX, Y = lat => (T0 - lat) * KY;
+const toLL = (x, y) => ({ lng: x / KX + L0, lat: T0 - y / KY });
+const RIVER = 'M150 -10 C 170 60, 260 110, 360 150 S 500 220, 528 290 S 540 400, 520 470';
+const ROADS = [
+  'M96 115 C 200 140, 330 190, 470 225 S 590 290, 664 309',   // Burla to town (via bridge)
+  'M160 29 C 150 70, 120 95, 96 115',                          // Hirakud to Burla
+  'M664 309 L 704 250 L 741 204',                              // Modipara > Farm Road > Ainthapali
+  'M704 250 L 693 138 L 690 60',                               // Farm Road > Bareipali > north
+  'M664 309 L 624 321 L 603 292 L 640 220',                    // Golebazar, Sakhipara, Gopalmal
+  'M624 321 L 608 395 L 600 470',                              // Khetrajpur, south
+  'M624 321 L 555 358',                                         // Budharaja
+  'M664 309 L 736 372 L 790 410',                              // Dhanupali, east
+  'M741 204 L 800 180',
+];
+function mapSVG({ pts = [], path = null, fit = null, pick = false, pin = null }) {
+  let vb = [0, 0, 800, 460];
+  if (fit && fit.length) {
+    const xs = fit.map(p => X(p.lng)), ys = fit.map(p => Y(p.lat));
+    let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    let w = Math.max(x1 - x0, 90) + 110, h = Math.max(y1 - y0, 60) + 70;
+    const asp = 0.62; if (h / w < asp) h = w * asp; else w = h / asp;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    vb = [cx - w / 2, cy - h / 2, w, h];
+  }
+  const k = vb[2] / 800, u = vb[2] / 430, fs = 11.5 * u, r = 7 * u;
+  let s = `<svg viewBox="${vb.map(v => v.toFixed(1)).join(' ')}" role="img" aria-label="Schematic map of Sambalpur" ${pick ? 'id="pickmap"' : ''}>`;
+  s += `<rect x="-400" y="-400" width="1600" height="1300" fill="var(--map)"/>`;
+  s += `<path d="${RIVER}" fill="none" stroke="var(--river)" stroke-width="${Math.max(22 * k, 8)}" stroke-linecap="round"/>`;
+  s += `<path d="M110 22 L 205 14" stroke="var(--mapink)" stroke-width="${Math.max(5 * k, 2)}" stroke-linecap="round"/>`;
+  s += ROADS.map(d => `<path d="${d}" fill="none" stroke="var(--road)" stroke-width="${Math.max(5 * k, 2)}" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+  s += `<text x="${X(83.92)}" y="${Y(21.505)}" font-size="${fs * 1.05}" fill="var(--mapink)" font-style="italic" transform="rotate(28 ${X(83.92)} ${Y(21.505)})">Mahanadi</text>`;
+  s += `<text x="157" y="${36 + fs}" font-size="${fs}" fill="var(--mapink)" text-anchor="middle">Hirakud Dam</text>`;
+  for (const [n, [lat, lng]] of Object.entries(PLACES)) {
+    if (n === 'Modipara') continue;
+    const busy = pts.concat(pin ? [pin] : []).some(p => Math.hypot(X(p.lng) - X(lng), Y(p.lat) - Y(lat)) < r * 4);
+    s += `<circle cx="${X(lng)}" cy="${Y(lat)}" r="${r * 0.35}" fill="var(--mapink)"/>`;
+    if (busy) continue;
+    s += `<text x="${X(lng) + r * 0.7}" y="${Y(lat) - r * 0.5}" font-size="${fs}" fill="var(--mapink)" font-family="Inter, system-ui, sans-serif">${n}</text>`;
+  }
+  if (path) {
+    const d = path.map((p, i) => `${i ? 'L' : 'M'}${X(p.lng).toFixed(1)} ${Y(p.lat).toFixed(1)}`).join(' ');
+    s += `<path d="${d}" fill="none" stroke="var(--brand)" stroke-width="${Math.max(3.5 * k, 1.6)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s += `<path d="${d}" fill="none" stroke="var(--surface)" stroke-width="${Math.max(1 * k, .5)}" stroke-dasharray="${4 * k} ${8 * k}"/>`;
+  }
+  // kitchen
+  s += `<g><rect x="${X(KITCHEN.lng) - r * 1.3}" y="${Y(KITCHEN.lat) - r * 1.3}" width="${r * 2.6}" height="${r * 2.6}" rx="${r * .5}" fill="var(--ink)"/><text x="${X(KITCHEN.lng)}" y="${Y(KITCHEN.lat) + fs * .38}" font-size="${fs * 1.05}" fill="var(--bg)" text-anchor="middle" font-weight="700" font-family="Inter, system-ui, sans-serif">K</text><text x="${X(KITCHEN.lng) + r * 1.8}" y="${Y(KITCHEN.lat) + fs * 1.2}" font-size="${fs}" font-weight="600" fill="var(--ink)" font-family="Inter, system-ui, sans-serif">Kitchen</text></g>`;
+  for (const p of pts) {
+    const x = X(p.lng), y = Y(p.lat), c = p.color || 'var(--brand)';
+    s += `<g><circle cx="${x}" cy="${y}" r="${r * 1.35}" fill="${c}" stroke="var(--surface)" stroke-width="${r * .3}"/><text x="${x}" y="${y + fs * .38}" font-size="${fs * 1.05}" fill="var(--on-brand)" text-anchor="middle" font-weight="700" font-family="Inter, system-ui, sans-serif">${esc(p.label)}</text>${p.name ? `<text x="${x + r * 1.9}" y="${y + fs * 0.38}" font-size="${fs}" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--map)" stroke-width="${r * .5}" font-family="Inter, system-ui, sans-serif">${esc(p.name)}</text>` : ''}</g>`;
+  }
+  if (pin) {
+    const x = X(pin.lng), y = Y(pin.lat), z = r * 1.6;
+    s += `<g><path d="M${x} ${y} c ${-z} ${-z * 1.4}, ${-z} ${-z * 2.6}, 0 ${-z * 2.6} s ${z} ${z * 1.2}, 0 ${z * 2.6}z" fill="var(--accent)" stroke="var(--surface)" stroke-width="${r * .25}"/><circle cx="${x}" cy="${y - z * 1.75}" r="${z * .35}" fill="var(--surface)"/></g>`;
+  }
+  return s + '</svg>';
+}
+
+/* ======================= Customer views ======================= */
+function renderCustomer() {
+  if (S.step === 'checkout') return renderCheckout();
+  if (S.step === 'track') return renderTrack();
+  const sec = MENU.find(c => c.cat === S.cat);
+  return `<div class="cust">
+    <div class="hello">
+      <h1>Odia home food, delivered across Sambalpur</h1>
+      <div class="chips-row"><span class="chip good">Open now · 11 am to 11 pm</span><span class="chip">30 to 50 min</span><span class="chip">Cash or UPI on delivery</span></div>
+    </div>
+    <div class="cats" role="group" aria-label="Menu categories">${MENU.map(c => `<button type="button" data-cat="${esc(c.cat)}" aria-pressed="${c.cat === S.cat}">${esc(c.cat)}</button>`).join('')}</div>
+    <section class="menu-sec"><h2>${esc(sec.cat)}</h2>${sec.items.map(itemCard).join('')}</section>
+  </div>`;
+}
+function itemCard(i) {
+  const q = S.cart[i.id] || 0;
+  return `<div class="item"><div>
+      <h3><span class="vmark ${i.v ? '' : 'nv'}" title="${i.v ? 'Veg' : 'Non-veg'}"></span>${esc(i.n)}${i.tag ? ` <span class="tag">${esc(i.tag)}</span>` : ''}</h3>
+      <p>${esc(i.d)}</p><span class="price">${rs(i.p)}</span></div>
+    ${q ? `<div class="stepper"><button type="button" data-dec="${i.id}" aria-label="Remove one ${esc(i.n)}">−</button><span>${q}</span><button type="button" data-inc="${i.id}" aria-label="Add one more ${esc(i.n)}">+</button></div>`
+        : `<button class="add" type="button" data-inc="${i.id}">ADD</button>`}
+  </div>`;
+}
+function renderCheckout() {
+  const items = Object.entries(S.cart), sub = cartTotal(), fee = sub >= 399 ? 0 : 25;
+  const pin = S.pin || { lat: 21.4858, lng: 83.9898 };
+  S.pin = pin;
+  const area = nearestPlace(pin), dist = road(KITCHEN, pin);
+  return `<div class="cust">
+    <button class="link" type="button" data-step="menu">← Back to menu</button>
+    <div class="card"><h2>Your order</h2>
+      <div class="lines">${items.map(([id, q]) => `<div class="line"><span>${q}× ${esc(ITEMS[id].n)}</span><span class="num">${rs(ITEMS[id].p * q)}</span></div>`).join('')}
+        <div class="line muted"><span>Delivery ${fee ? '(free above ₹399)' : ''}</span><span class="num">${fee ? rs(fee) : 'Free'}</span></div>
+        <div class="line total"><span>To pay</span><span class="num">${rs(sub + fee)}</span></div></div>
+    </div>
+    <div class="card"><h2>Delivery location</h2>
+      <p class="muted" style="margin:0;font-size:13.5px">Tap the map to drop the pin on your exact house. Riders find you from the pin, not just the address.</p>
+      <div class="mapbox pick">${mapSVG({ fit: [pin, KITCHEN], pick: true, pin })}<span class="maphint">Tap to move pin</span></div>
+      <div class="chips-row"><span class="chip brand">Near ${esc(area)}</span><span class="chip">${km1(dist)} km from kitchen</span>${dist > 8 ? '<span class="chip warn">Outer zone · up to 75 min</span>' : ''}</div>
+      <label class="f" for="c-land">House no. and landmark <span>Example: Behind Hanuman temple, green gate, 1st floor</span>
+        <textarea id="c-land">Lane 2, opposite Jagannath medical, white house with grill gate</textarea></label>
+    </div>
+    <div class="card"><h2>Contact and payment</h2>
+      <label class="f" for="c-name">Name<input id="c-name" type="text" value="Demo Customer" autocomplete="off"></label>
+      <label class="f" for="c-phone">Phone<input id="c-phone" type="tel" value="90000 00000" autocomplete="off"></label>
+      <div class="pay">
+        <label for="pay-cod"><input id="pay-cod" type="radio" name="pay" value="Cash on delivery" checked> Cash on delivery</label>
+        <label for="pay-upi"><input id="pay-upi" type="radio" name="pay" value="UPI on delivery"> UPI on delivery</label>
+      </div>
+      <button class="btn" type="button" id="place">Place order · ${rs(sub + fee)}</button>
+    </div>
+  </div>`;
+}
+function findMyPlan() {
+  const o = S.orders.find(x => x.id === S.myOrder); if (!o) return {};
+  const trip = S.trips.find(t => t.orders.some(x => x.id === o.id));
+  const g = trip || suggestBatches(S.orders, S.windowMin, S.maxSize, nowMin()).find(b => b.orders.some(x => x.id === o.id));
+  return { o, g, trip };
+}
+function renderTrack() {
+  const { o, g, trip } = findMyPlan();
+  if (!o) { S.step = 'menu'; return renderCustomer(); }
+  const leg = g ? g.route.legs.find(l => l.order.id === o.id) : null;
+  const others = g ? g.orders.length - 1 : 0;
+  const st = o.status;
+  const cls = s => ({ cooking: ['done', 'now', '', ''], out: ['done', 'done', 'now', ''], delivered: ['done', 'done', 'done', 'done'] }[st][s]);
+  return `<div class="cust">
+    <div class="card">
+      <div class="chips-row"><span class="chip good">Order #${o.id} placed</span><span class="chip">${clock(o.placedAt)}</span></div>
+      <h2 style="font-size:22px">${st === 'delivered' ? 'Delivered. Enjoy your meal' : `Arriving by ${leg ? clock(leg.eta) : clock(o.placedAt + promiseFor(o))}`}</h2>
+      <p class="muted" style="margin:0;font-size:13.5px">${esc(itemsText(o.items))} · ${rs(orderValue(o.items))} · ${esc(o.pay)}</p>
+      <ol class="steps">
+        <li class="${cls(0)}"><div></div><div><b>Order received</b><small>The kitchen has your order and exact pin</small></div></li>
+        <li class="${cls(1)}"><div></div><div><b>Being cooked</b><small>Fresh, packed in a sealed, insulated bag</small></div></li>
+        <li class="${cls(2)}"><div></div><div><b>Out for delivery</b><small>${trip ? `Rider left at ${clock(trip.route.depart)}` : 'The rider leaves as soon as your food is packed'}</small></div></li>
+        <li class="${cls(3)}"><div></div><div><b>Delivered</b><small>Pay the rider by cash or UPI</small></div></li>
+      </ol>
+      ${others ? `<div class="callout">Your rider is also carrying ${others} other order${others > 1 ? 's' : ''} for your area. We only group orders when every customer still gets their food on time.</div>` : ''}
+    </div>
+    <div class="card"><h2>Delivering to</h2>
+      <div class="mapbox">${mapSVG({ fit: [o, KITCHEN], pts: [{ ...o, label: '•', color: 'var(--accent)' }] })}</div>
+      <p style="margin:0;font-size:14px">${esc(o.landmark)}<br><span class="muted">Near ${esc(o.place)}</span></p>
+    </div>
+    <div style="display:grid;gap:8px">
+      <button class="btn" type="button" data-goto="owner">See this order in the kitchen dashboard →</button>
+      <button class="btn ghost" type="button" data-step="menu">Order something else</button>
+    </div>
+  </div>`;
+}
+
+/* ======================= Owner views ======================= */
+function renderOwner() {
+  const now = nowMin();
+  const groups = suggestBatches(S.orders, S.windowMin, S.maxSize, now);
+  const multi = groups.filter(g => g.orders.length > 1), solo = groups.filter(g => g.orders.length === 1);
+  const cooking = S.orders.filter(o => o.status === 'cooking').length;
+  const savedNow = multi.reduce((s, g) => s + g.route.savedKm, 0);
+  const all = multi.concat(solo);
+  if (!S.sel || !all.some(g => key(g) === S.sel)) S.sel = all.length ? key(all[0]) : null;
+  const selG = all.find(g => key(g) === S.sel);
+  return `<div class="own">
+    <div class="own-head">
+      <div><h1>Kitchen dashboard</h1><div class="muted" style="font-size:13.5px">Orders that can share one rider trip are grouped for you.</div></div>
+      <button class="btn ghost small" type="button" id="addtest">+ Add a test order</button>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Orders in the kitchen</small><b>${cooking}</b></div>
+      <div class="kpi"><small>Rider trips needed</small><b>${groups.length}<em>not ${cooking}</em></b></div>
+      <div class="kpi hl"><small>Saved if grouped now</small><b>${km1(savedNow)}<em>km</em></b></div>
+      <div class="kpi"><small>Saved today</small><b>${km1(S.savedTodayKm)}<em>km</em></b></div>
+    </div>
+    <div class="controls">
+      <label for="win">Group orders placed within <input id="win" type="range" min="30" max="50" step="5" value="${S.windowMin}"> <span class="num">${S.windowMin} min</span></label>
+      <label for="max">Max per rider <select id="max" style="width:auto;padding:6px 10px"><option ${S.maxSize === 2 ? 'selected' : ''}>2</option><option ${S.maxSize === 3 ? 'selected' : ''}>3</option></select></label>
+      <span class="sp"></span><span class="muted" style="font-size:12.5px">Promise: ${PROMISE_MIN} min in town, 75 min beyond 8 km</span>
+    </div>
+    <div class="cols">
+      <div class="stack">
+        <div class="sec-title"><h2>Suggested trips</h2><small>${multi.length} grouped · ${solo.length} single</small></div>
+        ${all.length ? all.map(g => batchCard(g)).join('') : '<div class="empty card">No orders waiting. New orders appear here as they come in.</div>'}
+        ${S.trips.length ? `<div class="sec-title" style="margin-top:8px"><h2>On the road</h2><small>${S.trips.length} trip${S.trips.length > 1 ? 's' : ''}</small></div>
+          <div class="road-list">${S.trips.map((t, i) => `<div class="road-item"><span><b>${t.orders.length} order${t.orders.length > 1 ? 's' : ''}</b> · ${esc(t.orders.map(o => o.place).join(' → '))}<br><span class="muted" style="font-size:12.5px">Left ${clock(t.route.depart)} · back about ${clock(t.route.returnAt)}</span></span><button class="btn ghost small" type="button" data-deliver="${i}">Mark delivered</button></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="stack" id="routepanel">${selG ? routePanel(selG) : ''}</div>
+    </div>
+  </div>`;
+}
+const key = g => g.orders.map(o => o.id).join('-');
+function batchCard(g) {
+  const r = g.route, many = g.orders.length > 1, now = nowMin();
+  const label = many ? `${g.orders.length} orders, one trip` : 'Single order';
+  const areas = [...new Set(r.stops.map(o => o.place))].join(', ');
+  return `<div class="batch ${many ? 'multi' : 'solo'}" aria-current="${key(g) === S.sel}">
+    <div class="batch-h"><b>${label}</b>${many ? `<span class="chip good">Saves ${km1(r.savedKm)} km · ~${Math.round(r.savedMin)} min</span>` : `<span class="chip">${esc(g.why)}</span>`}</div>
+    <div class="muted" style="font-size:12.5px;margin-top:-6px">${esc(areas)}</div>
+    <div class="olist">${r.stops.map((o, i) => `<div class="orow"><span class="n">${i + 1}</span><div><div class="who">${esc(o.name)}${now - o.placedAt < 3 ? '<span class="new-dot">NEW</span>' : ''}</div><div class="where">${esc(itemsText(o.items))}</div></div><span class="age">${ago(o.placedAt)}<br>via ${esc(o.from)}</span></div>`).join('')}</div>
+    <div class="save"><span>Leaves <b>${clock(r.depart)}</b></span><span>Route <b>${km1(r.totalKm)} km</b></span>${many ? `<span>Separate trips <b>${km1(r.soloKm)} km</b></span>` : ''}<span class="${r.onTime ? 'ok' : 'late'}">${r.onTime ? 'Everyone on time' : `Late by ${Math.ceil(r.late)} min`}</span></div>
+    <div class="bact"><button class="btn small ${key(g) === S.sel ? '' : 'ghost'}" type="button" data-sel="${key(g)}">${key(g) === S.sel ? 'Showing route' : 'View route'}</button><button class="btn small ghost" type="button" data-dispatch="${key(g)}">${many ? 'Send together' : 'Send now'}</button></div>
+  </div>`;
+}
+function routePanel(g) {
+  const r = g.route;
+  const path = [KITCHEN, ...r.stops, KITCHEN];
+  const pts = r.stops.map((o, i) => ({ ...o, label: String(i + 1), name: o.name.split(' ')[0] }));
+  return `<div class="card">
+    <div class="sec-title"><h2>Best route · ${r.stops.length} stop${r.stops.length > 1 ? 's' : ''}</h2><small>${km1(r.totalKm)} km incl. return</small></div>
+    <div class="mapbox">${mapSVG({ pts, path, fit: [KITCHEN, ...r.stops] })}<span class="maphint">Schematic · road distance estimated</span></div>
+    <div class="legs">
+      <div class="leg"><span class="n k">K</span><div><b>Leave kitchen</b><div class="addr">${esc(KITCHEN.name)} · food packed</div></div><div class="t num">${clock(r.depart)}</div></div>
+      ${r.legs.map((l, i) => { const o = l.order, ok = l.eta <= l.promise; return `<div class="leg"><span class="n">${i + 1}</span><div><b>${esc(o.name)}</b> <span class="muted" style="font-size:12.5px">#${o.id}</span>
+        <div class="addr">${esc(o.landmark)}</div>
+        <div class="ph">${esc(o.phone)} · ${rs(orderValue(o.items))} ${esc(o.pay === 'Cash on delivery' ? 'cash' : 'UPI')} · <a class="link" href="${pinLink(o)}" target="_blank" rel="noopener">pin</a></div></div>
+        <div class="t"><span class="num">${clock(l.eta)}</span><small>${km1(l.km)} km</small><small class="${ok ? 'ok' : 'late'}">${ok ? 'on time' : 'late'} · by ${clock(l.promise)}</small></div></div>`; }).join('')}
+      <div class="leg"><span class="n r">↩</span><div><b>Back to kitchen</b><div class="addr">${km1(r.backKm)} km</div></div><div class="t num">${clock(r.returnAt)}</div></div>
+    </div>
+    <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr">
+      <a class="btn" href="${gmaps(r.stops)}" target="_blank" rel="noopener">Open in Google Maps</a>
+      <button class="btn ghost" type="button" id="copyrider">Copy for rider</button>
+    </div>
+    <textarea class="copybox" id="ridertext" rows="5" hidden readonly>${esc(riderText(r))}</textarea>
+  </div>`;
+}
+function riderText(r) {
+  return `Trip from ${KITCHEN.name}, leave ${clock(r.depart)}\n` + r.legs.map((l, i) => {
+    const o = l.order; return `${i + 1}. ${o.name} (${o.phone}) - ${o.landmark}. Collect ${o.pay === 'Cash on delivery' ? 'cash ' + rs(orderValue(o.items)) : 'UPI'}. Pin: ${pinLink(o)}`;
+  }).join('\n') + `\nFull route: ${gmaps(r.stops)}`;
+}
+
+/* ======================= Render + events ======================= */
+function render() {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === S.mode));
+  $('#app').innerHTML = S.mode === 'customer' ? renderCustomer() : renderOwner();
+  const n = cartCount();
+  $('#cartbar').innerHTML = S.mode === 'customer' && S.step === 'menu' && n ? `<div class="cartbar"><button type="button" data-step="checkout"><span>${n} item${n > 1 ? 's' : ''} · ${rs(cartTotal())}</span><span>Checkout →</span></button></div>` : '';
+}
+function setMode(m) { S.mode = m; if (location.hash !== '#' + m) history.replaceState(null, '', '#' + m); render(); window.scrollTo(0, 0); }
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a, svg#pickmap'); if (!t) return;
+  const d = t.dataset || {};
+  if (t.id === 'pickmap') {
+    const pt = t.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(t.getScreenCTM().inverse());
+    const land = $('#c-land').value, nm = $('#c-name').value, ph = $('#c-phone').value, pay = document.querySelector('input[name=pay]:checked').value;
+    S.pin = toLL(p.x, p.y); render();
+    $('#c-land').value = land; $('#c-name').value = nm; $('#c-phone').value = ph; document.querySelector(`input[name=pay][value="${pay}"]`).checked = true;
+    return;
+  }
+  if (d.mode) return setMode(d.mode);
+  if (d.goto) return setMode(d.goto);
+  if (d.cat) { S.cat = d.cat; return render(); }
+  if (d.inc) { S.cart[d.inc] = (S.cart[d.inc] || 0) + 1; return render(); }
+  if (d.dec) { S.cart[d.dec]--; if (!S.cart[d.dec]) delete S.cart[d.dec]; return render(); }
+  if (d.step) { S.step = d.step; render(); return window.scrollTo(0, 0); }
+  if (t.id === 'place') {
+    const name = $('#c-name').value.trim() || 'Customer', land = $('#c-land').value.trim() || 'No landmark given';
+    const o = { id: ++seq, name, place: nearestPlace(S.pin), lat: S.pin.lat, lng: S.pin.lng, placedAt: nowMin(), status: 'cooking', items: { ...S.cart }, phone: $('#c-phone').value, landmark: land, from: 'App', pay: document.querySelector('input[name=pay]:checked').value };
+    S.orders.push(o); S.myOrder = o.id; S.cart = {}; S.step = 'track'; render(); window.scrollTo(0, 0);
+    return toast('Order placed. The kitchen can see it now.');
+  }
+  if (d.sel) { S.sel = d.sel; render(); if (matchMedia('(max-width: 860px)').matches) $('#routepanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (d.dispatch) {
+    const g = suggestBatches(S.orders, S.windowMin, S.maxSize, nowMin()).find(x => key(x) === d.dispatch); if (!g) return;
+    g.orders.forEach(o => o.status = 'out'); S.trips.push(g); S.savedTodayKm += g.route.savedKm; S.sel = null; render();
+    return toast(g.orders.length > 1 ? `${g.orders.length} orders sent with one rider` : 'Order sent');
+  }
+  if (d.deliver !== undefined) {
+    const tr = S.trips.splice(Number(d.deliver), 1)[0]; tr.orders.forEach(o => o.status = 'delivered'); render();
+    return toast('Trip marked delivered');
+  }
+  if (t.id === 'addtest') {
+    const names = ['Sunita Pradhan', 'Bikash Rout', 'Lipsa Mishra', 'Amit Sahu', 'Rashmi Behera', 'Pradeep Kar', 'Sasmita Das'];
+    const places = ['Ainthapali', 'Farm Road', 'Dhanupali', 'Golebazar', 'Sakhipara', 'Khetrajpur', 'Gopalmal', 'Budharaja', 'Bareipali'];
+    const ids = Object.keys(ITEMS), pick = a => a[Math.floor(Math.random() * a.length)];
+    const o = mkOrder(pick(names), pick(places), 0, { [pick(ids)]: 1, [pick(ids)]: 1 }, '9' + Math.floor(1e3 + Math.random() * 8999) + ' 0xx' + Math.floor(10 + Math.random() * 89), 'Test order, landmark to be confirmed on call', pick(['App', 'Phone', 'WhatsApp']));
+    S.orders.push(o); S.sel = null; render(); return toast(`New order from ${o.name}, ${o.place}`);
+  }
+  if (t.id === 'copyrider') {
+    const ta = $('#ridertext'), txt = ta.value;
+    navigator.clipboard?.writeText(txt).then(() => toast('Copied. Paste it into WhatsApp for the rider.'))
+      .catch(() => { ta.hidden = false; ta.focus(); ta.select(); toast('Select all and copy the text below'); });
+    if (!navigator.clipboard) { ta.hidden = false; ta.select(); }
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'win') { S.windowMin = Number(e.target.value); S.sel = null; render(); $('#win')?.focus(); }
+});
+document.addEventListener('change', e => { if (e.target.id === 'max') { S.maxSize = Number(e.target.value); S.sel = null; render(); } });
+function fromHash() { const h = location.hash.slice(1); if (h === 'owner' || h === 'customer') { S.mode = h; } render(); }
+window.addEventListener('hashchange', fromHash);
+// Start with a sample cart so the checkout is one tap away
+S.cart = { vthali: 1, chhenapoda: 2 };
+fromHash();
+setInterval(() => { if (S.mode === 'owner' || S.step === 'track') { const y = scrollY; render(); scrollTo(0, y); } }, 30000);
+</script>

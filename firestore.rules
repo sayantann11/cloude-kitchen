@@ -1,0 +1,93 @@
+rules_version = '2';
+
+// Mahanadi Kitchen — who can read and write what.
+//  * Anyone can read the menu and settings.
+//  * Customers (anonymous sign-in) can create an order for themselves, read only their own orders,
+//    cancel before the kitchen accepts, and mark a UPI payment as done.
+//  * The rider holds only the trip's secret 24-char id: they can read that one trip, tick stops,
+//    and mark those orders delivered. Nothing else.
+//  * The owner (a uid listed in /owners) can do everything.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner() { return signedIn() && exists(/databases/$(database)/documents/owners/$(request.auth.uid)); }
+    function settingsPath() { return /databases/$(database)/documents/public/settings; }
+    function notPaused() { return !exists(settingsPath()) || get(settingsPath()).data.get('paused', false) != true; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    match /public/{docId} {
+      allow read: if true;
+      allow write: if isOwner() && docId in ['settings', 'menu'];
+    }
+
+    match /owners/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, write: if false; // add owners by hand in the Firebase console
+    }
+
+    match /orders/{orderId} {
+      function validNewOrder() {
+        let d = request.resource.data;
+        let nowMs = request.time.toMillis();
+        return d.id == orderId
+          && d.customerUid == request.auth.uid
+          && d.status == 'placed'
+          && d.payState == 'pending'
+          && d.pay in ['cod', 'upi_on_delivery', 'upi_now']
+          && d.code is string && d.code.size() == 4
+          && d.name is string && d.name.size() >= 2 && d.name.size() <= 60
+          && d.phone is string && d.phone.matches('^[6-9][0-9]{9}$')
+          && d.address is string && d.address.size() >= 8 && d.address.size() <= 200
+          && d.note is string && d.note.size() <= 200
+          && d.area is string && d.area.size() <= 60
+          && d.lines is list && d.lines.size() >= 1 && d.lines.size() <= 40
+          && d.subtotal is number && d.deliveryFee is number && d.deliveryFee >= 0
+          && d.total == d.subtotal + d.deliveryFee && d.total > 0 && d.total <= 50000
+          && d.location.lat is number && d.location.lng is number
+          && d.placedAt is number && d.placedAt > nowMs - 300000 && d.placedAt < nowMs + 300000
+          && d.promiseAt is number && d.promiseAt > d.placedAt && d.promiseAt < d.placedAt + 4 * 3600000
+          && !d.keys().hasAny(['tripId', 'acceptedAt', 'readyAt', 'outAt', 'deliveredAt', 'riderName', 'riderPhone', 'kmSaved', 'utr']);
+      }
+      function isCustomer() { return signedIn() && resource.data.customerUid == request.auth.uid; }
+      function customerCancel() {
+        return resource.data.status == 'placed' && request.resource.data.status == 'cancelled'
+          && changed().hasOnly(['status', 'cancelledAt', 'reason'])
+          && request.resource.data.reason is string && request.resource.data.reason.size() <= 80;
+      }
+      function customerClaimPaid() {
+        return resource.data.pay == 'upi_now' && resource.data.payState == 'pending'
+          && request.resource.data.payState == 'claimed'
+          && request.resource.data.utr is string && request.resource.data.utr.size() <= 20
+          && changed().hasOnly(['payState', 'utr']);
+      }
+      function riderDeliver() {
+        return resource.data.status == 'out' && request.resource.data.status == 'delivered'
+          && resource.data.tripId is string && resource.data.tripId.size() >= 20
+          && exists(/databases/$(database)/documents/trips/$(resource.data.tripId))
+          && changed().hasOnly(['status', 'deliveredAt', 'payState'])
+          && request.resource.data.payState in ['pending', 'paid'];
+      }
+
+      allow create: if signedIn() && validNewOrder() && notPaused();
+      allow get: if isOwner() || isCustomer();
+      allow list: if isOwner() || isCustomer();
+      allow update: if isOwner()
+        || (isCustomer() && (customerCancel() || customerClaimPaid()))
+        || (signedIn() && riderDeliver());
+      allow delete: if false;
+    }
+
+    match /trips/{tripId} {
+      // get by exact id only: the id is the rider's secret link. Nobody but the owner can list trips.
+      allow get: if signedIn();
+      allow list: if isOwner();
+      allow create, delete: if isOwner();
+      allow update: if isOwner()
+        || (signedIn() && resource.data.status == 'active'
+            && changed().hasOnly(['stops', 'status', 'updatedAt'])
+            && request.resource.data.stops.size() == resource.data.stops.size()
+            && request.resource.data.status in ['active', 'done']);
+    }
+  }
+}
