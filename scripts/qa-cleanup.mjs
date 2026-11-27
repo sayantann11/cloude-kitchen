@@ -18,6 +18,7 @@ const isTest = d => {
 };
 const orders = (await db.collection('orders').where('placedAt', '>=', Date.now() - 48 * 3600_000).get()).docs.filter(isTest);
 const ids = new Set(orders.map(d => d.id));
+console.log(`::notice::Final server status of test orders: ${orders.map(d => `${d.get('code')}=${d.get('status')}${d.get('reason') ? '(' + d.get('reason') + ')' : ''}`).join(', ')}`);
 let trips = 0;
 for (const t of (await db.collection('trips').where('createdAt', '>=', since).get()).docs) {
   const stops = t.get('stops') ?? [];
