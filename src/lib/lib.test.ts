@@ -8,7 +8,8 @@ import { upiLink } from './upi';
 import { rupees, prettyPhone, istDay } from './format';
 import { docId, shortCode } from './ids';
 
-const S = SEED_SETTINGS;
+const evening = { open: '18:00', close: '23:30' };
+const S = { ...SEED_SETTINGS, hours: Array.from({ length: 7 }, () => evening) };
 const items = SEED_MENU.items;
 const ist = (y: number, mo: number, d: number, h: number, mi = 0) => Date.UTC(y, mo, d, h, mi) - 330 * 60_000;
 

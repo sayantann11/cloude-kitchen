@@ -148,7 +148,8 @@ export const SEED_MENU: Menu = {
   }))),
 };
 
-const evening = { open: '18:00', close: '23:30' };
+// Open all day while the client tests. Set the real hours in Admin → Settings (saved settings replace these).
+const allDay = { open: '00:00', close: '00:00' };
 
 export const SEED_SETTINGS: Settings = {
   kitchenName: 'The Night Kitchen',
@@ -157,7 +158,7 @@ export const SEED_SETTINGS: Settings = {
   whatsapp: '919000000000',
   address: 'Sambalpur, Odisha',
   location: { lat: 21.4712, lng: 83.9795 },
-  hours: [evening, evening, evening, evening, evening, evening, evening],
+  hours: [allDay, allDay, allDay, allDay, allDay, allDay, allDay],
   paused: false,
   pauseMessage: 'Kitchen is very busy. Please try again in 20 minutes.',
   minOrder: 99,
