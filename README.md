@@ -83,15 +83,15 @@ Runs the type-check, 40 unit tests (batching, routing, prices, stock, hours, val
 7. **First login**: open `/admin`, log in, go to **Settings**: set the real kitchen name, phone, WhatsApp, kitchen location on the map, hours, UPI ID and riders → **Save**. Then **Menu**: fix dishes and prices.
 8. **Share** the link on WhatsApp / Instagram / a QR code on the packaging. Customers can "Add to Home screen".
 
-### Auto-deploy from GitHub (optional, free)
+### Auto-deploy from GitHub (free, can be done from a phone)
 
-Every push to `main` runs all tests on GitHub. To also publish the site automatically:
+Every push to `main` runs all tests on GitHub, then publishes the site **and** the security rules.
 
-1. Firebase console → Project settings → **Service accounts** → **Generate new private key** (downloads a JSON file; keep it private).
-2. GitHub repo → Settings → Secrets and variables → Actions:
-   - **Secrets** tab → New secret `FIREBASE_SERVICE_ACCOUNT` → paste the whole JSON file.
-   - **Variables** tab → add `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID` from your web app config.
-3. Push to `main`. The site updates in about 2 minutes. Security rules change rarely: deploy them from your PC with `npx firebase deploy --only firestore`.
+1. Firebase console → ⚙️ Project settings → **Service accounts** → **Generate new private key** (downloads a JSON file; keep it private, never share it).
+2. GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**: name `FIREBASE_SERVICE_ACCOUNT`, value = the whole JSON file.
+3. Push to `main` (or re-run the latest workflow). The site updates in about 3 minutes.
+
+The public web keys live in `.env.production` (they are not secrets). From a computer you can also deploy directly: `npx firebase login`, then `npm run deploy`.
 
 Optional: connect a custom domain (Hosting → Add custom domain, ~₹800–1,200/year for the domain). For extra protection against spam orders, turn on Firebase App Check (reCAPTCHA, free).
 

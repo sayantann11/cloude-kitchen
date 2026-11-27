@@ -87,8 +87,9 @@ export class FirebaseStore implements DataStore {
     let dead = false;
     this.user().then(u => {
       if (dead) return;
-      const q = query(collection(this.db, 'orders'), where('customerUid', '==', u.uid || uid), orderBy('placedAt', 'desc'), limit(30));
-      off = onSnapshot(q, s => cb(s.docs.map(d => d.data() as Order)), () => cb([]));
+      // Equality-only query: needs no composite index. Newest first, sorted here.
+      const q = query(collection(this.db, 'orders'), where('customerUid', '==', u.uid || uid), limit(100));
+      off = onSnapshot(q, s => cb(s.docs.map(d => d.data() as Order).sort((a, b) => b.placedAt - a.placedAt).slice(0, 30)), () => cb([]));
     });
     return () => { dead = true; off(); };
   }
