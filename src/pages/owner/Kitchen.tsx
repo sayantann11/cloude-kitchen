@@ -82,6 +82,12 @@ function Login() {
   const pass = useSignal(demo ? DEMO_OWNER.password : '');
   const busy = useSignal(false);
   const err = useSignal('');
+  const sent = useSignal(false);
+  const reset = async () => {
+    err.value = '';
+    if (!/^\S+@\S+\.\S+$/.test(email.value.trim())) { err.value = 'Type the owner email above, then tap Forgot password'; return; }
+    try { await store.value!.ownerResetPassword(email.value); sent.value = true; } catch (x) { err.value = errMsg(x); }
+  };
   const submit = async (e: Event) => {
     e.preventDefault();
     busy.value = true; err.value = '';
@@ -95,6 +101,8 @@ function Login() {
         <Field id="em" label="Email"><input id="em" type="email" autocomplete="username" value={email.value} onInput={e => { email.value = (e.target as HTMLInputElement).value; }} required /></Field>
         <Field id="pw" label="Password" error={err.value}><input id="pw" type="password" autocomplete="current-password" value={pass.value} onInput={e => { pass.value = (e.target as HTMLInputElement).value; }} required /></Field>
         <Btn type="submit" busy={busy.value} block>Log in</Btn>
+        {sent.value ? <div class="banner info" role="status"><div><b>Check your email</b>If {email.value.trim()} is the owner account, a link to set a new password is on its way. Look in spam too.</div></div>
+          : <button type="button" class="linkbtn" style={{ justifySelf: 'center' }} onClick={reset}>Forgot password?</button>}
         <a href="/" class="linkbtn" style={{ justifySelf: 'center' }}>Go to customer menu</a>
       </form>
     </main>

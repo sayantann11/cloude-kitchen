@@ -109,6 +109,7 @@ export class LocalStore implements DataStore {
     write(K.owner, { uid: 'owner_demo', email: DEMO_OWNER.email });
     this.emit('owner');
   }
+  async ownerResetPassword(email: string) { if (!email.trim()) throw new Error('Enter the owner email first'); await sleep(200); }
   async ownerSignOut() { localStorage.removeItem(K.owner); this.emit('owner'); }
 
   async saveSettings(patch: Partial<Settings>) {

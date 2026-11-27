@@ -103,3 +103,13 @@ test('prices: inline change, bulk change by category, offer price, hide a dish',
   await expect(kaju).toHaveCount(0);
   await expect(row(admin, 'Kaju Curry')).toContainText('Hidden from customers');
 });
+
+test('forgot password asks for the email, then confirms the reset link was sent', async ({ page }) => {
+  await page.goto('/admin');
+  await page.locator('#em').fill('');
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  await expect(page.getByText('Type the owner email above')).toBeVisible();
+  await page.locator('#em').fill('owner@demo.local');
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  await expect(page.getByText('Check your email')).toBeVisible();
+});

@@ -8,7 +8,7 @@
  */
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import {
-  getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, type User,
+  getAuth, onAuthStateChanged, sendPasswordResetEmail, signInAnonymously, signInWithEmailAndPassword, signOut, type User,
 } from 'firebase/auth';
 import {
   collection, doc, getDoc, initializeFirestore, limit, onSnapshot, orderBy, persistentLocalCache,
@@ -127,6 +127,14 @@ export class FirebaseStore implements DataStore {
       if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) throw new Error('Wrong email or password');
       if (code.includes('too-many-requests')) throw new Error('Too many attempts. Wait a minute and try again.');
       throw e;
+    }
+  }
+  async ownerResetPassword(email: string) {
+    try { await sendPasswordResetEmail(this.auth, email.trim()); } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      if (code.includes('invalid-email') || code.includes('missing-email')) throw new Error('Enter the owner email first');
+      if (code.includes('too-many-requests')) throw new Error('Too many attempts. Wait a minute and try again.');
+      if (!code.includes('user-not-found')) throw e; // don't reveal whether an email is registered
     }
   }
   async ownerSignOut() { await signOut(this.auth); }

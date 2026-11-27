@@ -27,6 +27,8 @@ export interface DataStore {
   // owner
   onOwner(cb: (s: OwnerSession | null) => void): Unsub;
   ownerSignIn(email: string, password: string): Promise<void>;
+  /** Email the owner a password-reset link. */
+  ownerResetPassword(email: string): Promise<void>;
   ownerSignOut(): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   saveMenu(m: Menu): Promise<void>;
