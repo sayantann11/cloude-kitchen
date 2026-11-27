@@ -1,0 +1,24 @@
+# Makes the UIDs in admin-owners.txt the admin owners (Firestore owners/{uid}).
+name: Set admin owners
+on:
+  push:
+    branches: [main]
+    paths: [admin-owners.txt, scripts/set-owners.mjs, .github/workflows/owners.yml]
+jobs:
+  owners:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin (outside the app)
+        run: |
+          mkdir -p "$RUNNER_TEMP/owners" && cp scripts/set-owners.mjs "$RUNNER_TEMP/owners/"
+          cd "$RUNNER_TEMP/owners" && npm init -y >/dev/null && npm i firebase-admin@13 --silent
+      - name: Sync owners
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          OWNERS_FILE: ${{ github.workspace }}/admin-owners.txt
+        run: node "$RUNNER_TEMP/owners/set-owners.mjs"
