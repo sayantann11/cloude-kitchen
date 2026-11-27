@@ -36,6 +36,7 @@ export function openState(s: Pick<Settings, 'hours' | 'paused' | 'pauseMessage'>
   };
   const today = s.hours[day];
   const yday = s.hours[prev];
+  if (today && !today.closed && today.open === today.close) return { open: true, reason: 'open', label: 'Open 24 hours', closesAt: today.close };
   if (inWindow(today, minutes, false)) return { open: true, reason: 'open', label: `Open till ${fmtHHMM(today.close)}`, closesAt: today.close };
   if (inWindow(yday, minutes, true)) return { open: true, reason: 'open', label: `Open till ${fmtHHMM(yday.close)}`, closesAt: yday.close };
   // find next opening

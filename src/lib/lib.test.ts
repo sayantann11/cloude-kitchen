@@ -110,6 +110,9 @@ describe('opening hours (IST)', () => {
     expect(openState(late, ist(2026, 10, 28, 0, 30)).open).toBe(true);
     expect(openState(late, ist(2026, 10, 28, 1, 30)).open).toBe(false);
   });
+  it('same open and close time means open 24 hours', () => {
+    expect(openState(SEED_SETTINGS, ist(2026, 10, 27, 15, 0)).label).toBe('Open 24 hours');
+  });
   it('closed days and pause', () => {
     const shut = { ...S, hours: S.hours.map((h, i) => (i === 5 ? { ...h, closed: true } : h)) };
     expect(openState(shut, ist(2026, 10, 27, 19, 0)).open).toBe(false); // Friday closed
