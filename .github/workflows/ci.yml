@@ -44,23 +44,24 @@ jobs:
     env:
       HAS_FIREBASE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
     steps:
-      - name: Firebase not connected yet
-        if: env.HAS_FIREBASE != 'true'
-        run: echo "::notice::Skipping deploy. Add the FIREBASE_SERVICE_ACCOUNT secret (see README) to turn on auto-deploy."
       - uses: actions/checkout@v4
-        if: env.HAS_FIREBASE == 'true'
+      - name: Should we publish?
+        run: |
+          if [ "$HAS_FIREBASE" != "true" ]; then echo "::notice::Skipping deploy. Add the FIREBASE_SERVICE_ACCOUNT secret (see README)."; echo "GO=false" >> "$GITHUB_ENV";
+          elif [ -f .site-down ]; then echo "::notice::Website is switched off (.site-down). Not publishing."; echo "GO=false" >> "$GITHUB_ENV";
+          else echo "GO=true" >> "$GITHUB_ENV"; fi
       - uses: actions/setup-node@v4
-        if: env.HAS_FIREBASE == 'true'
+        if: env.GO == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-        if: env.HAS_FIREBASE == 'true'
+        if: env.GO == 'true'
       # Public web keys come from .env.production (they are not secrets).
       - run: npm run build
-        if: env.HAS_FIREBASE == 'true'
+        if: env.GO == 'true'
       - name: Deploy site + security rules to Firebase
-        if: env.HAS_FIREBASE == 'true'
+        if: env.GO == 'true'
         env:
           SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
