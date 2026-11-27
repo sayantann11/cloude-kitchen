@@ -11,8 +11,8 @@ import {
   getAuth, onAuthStateChanged, sendPasswordResetEmail, signInAnonymously, signInWithEmailAndPassword, signOut, type User,
 } from 'firebase/auth';
 import {
-  collection, doc, getDoc, getDocFromServer, initializeFirestore, limit, onSnapshot, orderBy, persistentLocalCache,
-  persistentMultipleTabManager, query, runTransaction, setDoc, updateDoc, where, writeBatch,
+  collection, doc, getDoc, getDocFromServer, initializeFirestore, limit, onSnapshot, orderBy,
+  query, runTransaction, setDoc, updateDoc, where, writeBatch,
   type DocumentData, type Firestore, type UpdateData,
 } from 'firebase/firestore';
 import { SEED_MENU, SEED_SETTINGS } from './seed';
@@ -35,12 +35,10 @@ export class FirebaseStore implements DataStore {
   constructor(config: FirebaseOptions) {
     const app = initializeApp(config);
     this.auth = getAuth(app);
-    let db: Firestore;
-    try {
-      db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
-    } catch {
-      db = initializeFirestore(app, {}); // private mode / no IndexedDB
-    }
+    // In-memory cache only. The IndexedDB multi-tab cache made a freshly reloaded page wait for the old page's
+    // lease before it would send writes or receive live updates (orders stuck "placing", tracking not updating).
+    // Menu + settings still paint instantly from our own localStorage copy (state/app.ts).
+    const db: Firestore = initializeFirestore(app, {});
     this.db = db;
     this.ready = new Promise(res => {
       const off = onAuthStateChanged(this.auth, u => { off(); res(u); });

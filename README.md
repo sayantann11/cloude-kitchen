@@ -22,7 +22,7 @@ Built for **₹0/month** hosting at 30–40 orders a night (Firebase free plan).
 ## Tech (chosen for speed and ₹0 hosting)
 
 - **Preact + TypeScript + Vite**: first load ≈ 30 KB gzipped. Kitchen, rider, maps and Firebase are separate chunks loaded only when needed.
-- **Firebase (Spark free plan)**: Firestore (live updates, offline cache), Auth (anonymous for customers/riders, email for the owner), Hosting.
+- **Firebase (Spark free plan)**: Firestore (live updates), Auth (anonymous for customers/riders, email for the owner), Hosting.
 - **Leaflet + OpenStreetMap**: free maps, no API key. Navigation hands off to Google Maps links (free).
 - **PWA**: installable on phones, works offline for repeat visits.
 - **No backend server, no Cloud Functions** → nothing to pay for. Security is in `firestore.rules`.

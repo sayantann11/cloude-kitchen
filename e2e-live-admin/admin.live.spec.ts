@@ -22,8 +22,8 @@ const row = (page: Page, name: string) => page.getByTestId('admin-row').filter({
 function logErrors(page: Page, who: string) {
   openPages.push(page);
   void page.exposeFunction('__qaToast', (t: string) => console.log(`::warning::[${who} toast] ${t}`)).then(() => page.addInitScript(() => {
-    new MutationObserver(() => { const t = document.querySelector('.toast'); if (t && t.textContent && (window as any).__last !== t.textContent) { (window as any).__last = t.textContent; (window as any).__qaToast(t.className + ': ' + t.textContent); } })
-      .observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+    addEventListener('DOMContentLoaded', () => new MutationObserver(() => { const t = document.querySelector('.toast'); if (t && t.textContent && (window as any).__last !== t.textContent) { (window as any).__last = t.textContent; (window as any).__qaToast(t.className + ': ' + t.textContent); } })
+      .observe(document.body, { subtree: true, childList: true, characterData: true }));
   })).catch(() => {});
   page.on('pageerror', e => console.log(`::warning::[${who} page error] ${e.message.slice(0, 300)}`));
   page.on('console', m => { if (m.type() === 'error') console.log(`::warning::[${who} console] ${m.text().slice(0, 300)}`); });
