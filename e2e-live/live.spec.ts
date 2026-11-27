@@ -103,7 +103,7 @@ test('real order, cash on delivery: placed, saved, listed, cancelled', async ({ 
   await card(page, 'Veg Hakka Noodles').getByRole('button', { name: 'Add one more Veg Hakka Noodles', exact: true }).click();
   await page.locator('.cartbar').click();
   await expect(page.locator('.line.total')).toContainText('₹439'); // 199 + 2×120, free delivery
-  await fillCheckout(page, { name: 'Test Customer COD', phone: '9000000003', address: 'TEST house 3, Farm Road' });
+  await fillCheckout(page, { name: 'QA Bot Cash', phone: '9000000003', address: 'TEST house 3, Farm Road' });
   await page.locator('#place-order').click();
   await expect(page).toHaveURL(/\/order\/[A-Za-z0-9]{20}/, { timeout: 20_000 });
   await expect(page.getByText('Order sent to the kitchen')).toBeVisible();
@@ -122,7 +122,7 @@ test('real order, UPI on delivery, cart empties afterwards', async ({ page }) =>
   await add(page, 'Chinese Combo');
   await page.locator('.cartbar').click();
   await expect(page.locator('.line.total')).toContainText('₹244'); // 219 + 25 delivery
-  await fillCheckout(page, { name: 'Test Customer UPI', phone: '9000000004', address: 'TEST house 4, Farm Road' });
+  await fillCheckout(page, { name: 'QA Bot UPI', phone: '9000000004', address: 'TEST house 4, Farm Road' });
   await page.getByRole('radio', { name: /UPI on delivery/ }).check();
   await expect(page.getByRole('radio', { name: /Pay now by UPI/ })).toHaveCount(0); // no UPI ID set yet
   await page.locator('#place-order').click();

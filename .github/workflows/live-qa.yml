@@ -1,0 +1,42 @@
+# Production QA: runs the full admin + rider + customer night on the LIVE site.
+# A temporary password-less QA admin is created for the run; every test order, trip,
+# and menu/settings change is removed or restored afterwards (see scripts/qa-*.mjs).
+name: Live admin QA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [e2e-live-admin/**, e2e-live/**, scripts/qa-*.mjs, .github/workflows/live-qa.yml, .qa-run]
+concurrency: live-qa
+jobs:
+  live-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      SNAPSHOT_FILE: ${{ github.workspace }}/../qa-snapshot.json
+      PW_CHANNEL: chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save firebase-admin@13
+      - name: Create temporary QA admin + snapshot
+        run: node scripts/qa-setup.mjs
+      - name: Customer side on live site
+        run: npx playwright test -c playwright.live.config.ts --reporter=github,list
+      - name: Admin side on live site
+        if: success() || failure()
+        run: npx playwright test -c playwright.live-admin.config.ts --reporter=github,list
+      - name: Clean up test data and QA admin
+        if: always()
+        run: node scripts/qa-cleanup.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: live-qa-results
+          path: test-results
+          retention-days: 7
