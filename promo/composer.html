@@ -1,0 +1,381 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>StackForge promo · final 30s edit</title>
+<style>html,body{margin:0;background:#000}#out{width:360px;height:640px;display:block}</style>
+<script src="node_modules/mp4-muxer/build/mp4-muxer.js"></script>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920" style="display:none"></canvas>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script src="opening.js"></script>
+<script>
+// ======================= timeline (seconds) =======================
+const TOTAL = 30, FPS = 30;
+const T_APP = 6.0, T_END = 25.0, T_LOGO = 27.6;
+const SLOT = (T_END - T_APP) / 4; // 4.75s per feature
+const CLIPS = [
+  { file: 'out/clips/01-orders-coming-in.mp4', in: 0.3, out: 5.4, tag: '01', label: 'LIVE ORDERS' },
+  { file: 'out/clips/02-kitchen-queue.mp4',    in: 0.3, out: 7.2, tag: '02', label: 'KITCHEN QUEUE' },
+  { file: 'out/clips/03-stock-low-alert.mp4',  in: 0.4, out: 5.0, tag: '03', label: 'STOCK ALERTS' },
+  { file: 'out/clips/04-sales-dashboard.mp4',  in: 0.6, out: 7.0, tag: '04', label: "TODAY'S SALES" },
+];
+let VO = []; // filled from vo.json + measured durations: { at, dur, caption }
+
+const O = document.getElementById('out'), o = O.getContext('2d');
+const SRC = document.getElementById('c'); // opening.js draws here
+const FONT2 = '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
+const cl = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lp = (a, b, u) => a + (b - a) * u;
+const eio = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+const eo = u => 1 - Math.pow(1 - u, 3);
+const spr = u => (u <= 0 ? 0 : u >= 1 ? 1 : 1 - Math.exp(-6 * u) * Math.cos(9 * u));
+function rrect(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+
+// ======================= video clips =======================
+const vids = CLIPS.map(c => { const v = document.createElement('video'); v.src = c.file; v.muted = true; v.preload = 'auto'; return v; });
+window.loadClips = () => Promise.all(vids.map(v => (v.readyState >= 1 ? 1 : new Promise((r, j) => { v.onloadedmetadata = r; v.onerror = () => j(new Error('clip ' + v.src)); }))))
+  .then(() => vids.map(v => v.duration));
+async function seek(v, t) {
+  t = Math.min(t, v.duration - 0.02);
+  if (Math.abs(v.currentTime - t) < 0.001 && v.readyState >= 2) return;
+  await new Promise(r => { v.onseeked = r; v.currentTime = t; });
+}
+async function clipFrame(i, local) { // local: 0..SLOT
+  const c = CLIPS[i];
+  await seek(vids[i], c.in + cl(local / SLOT) * (c.out - c.in));
+  return vids[i];
+}
+
+// ======================= phone mockup =======================
+// opening ends with the phone screen at 817.6 x 1606 centred; the app section settles to 680 x 1473 lower down
+const PH0 = { cx: 540, cy: 960, w: 56 * 14.6, h: 110 * 14.6, r: 6.5 * 14.6, b: 3.2 * 14.6 };
+const PH1 = { cx: 540, cy: 1095, w: 676, h: 676 * 2340 / 1080, r: 74, b: 24 };
+function phoneRect(t) {
+  const u = eio(cl((t - T_APP) / 0.7));
+  const r = {}; for (const k in PH0) r[k] = lp(PH0[k], PH1[k], u);
+  // exit punch into the ending
+  const x = cl((t - (T_END - 0.3)) / 0.3);
+  if (x > 0) { const s = 1 + 0.5 * x * x; r.w *= s; r.h *= s; r.r *= s; r.b *= s; }
+  return r;
+}
+function drawPhoneFrame(r, glow) {
+  o.save();
+  o.shadowColor = '#ff4fd8'; o.shadowBlur = 70 * glow;
+  o.fillStyle = '#0b0b12'; rrect(o, r.cx - r.w / 2 - r.b, r.cy - r.h / 2 - r.b, r.w + 2 * r.b, r.h + 2 * r.b, r.r + r.b * 0.9); o.fill();
+  o.shadowColor = '#3ef2ff'; o.shadowBlur = 40 * glow; o.fill();
+  o.restore();
+  o.strokeStyle = 'rgba(160,140,255,0.55)'; o.lineWidth = 3; rrect(o, r.cx - r.w / 2 - r.b, r.cy - r.h / 2 - r.b, r.w + 2 * r.b, r.h + 2 * r.b, r.r + r.b * 0.9); o.stroke();
+}
+function drawInScreen(r, img, iw, ih, alpha = 1) {
+  o.save(); rrect(o, r.cx - r.w / 2, r.cy - r.h / 2, r.w, r.h, r.r); o.clip();
+  const s = Math.max(r.w / iw, r.h / ih);
+  o.globalAlpha = alpha;
+  o.drawImage(img, r.cx - iw * s / 2, r.cy - ih * s / 2, iw * s, ih * s);
+  o.restore();
+}
+
+// ======================= backgrounds =======================
+const STARS = Array.from({ length: 120 }, (_, i) => ({ x: (i * 397) % 1080, y: (i * 911) % 1100, r: 1 + (i % 3) * 0.7, p: i }));
+function synthBg(t) {
+  const g = o.createLinearGradient(0, 0, 0, 1920);
+  g.addColorStop(0, '#07021a'); g.addColorStop(0.55, '#1d0942'); g.addColorStop(0.8, '#4a0f5f'); g.addColorStop(1, '#12052a');
+  o.fillStyle = g; o.fillRect(0, 0, 1080, 1920);
+  for (const s of STARS) { o.globalAlpha = 0.25 + 0.5 * Math.abs(Math.sin(t * 1.3 + s.p)); o.fillStyle = '#fff'; o.fillRect(s.x, s.y, s.r, s.r); }
+  o.globalAlpha = 1;
+  // sun glow behind the phone
+  const sg = o.createRadialGradient(540, 1150, 0, 540, 1150, 760);
+  sg.addColorStop(0, 'rgba(255,90,140,0.55)'); sg.addColorStop(0.5, 'rgba(255,60,180,0.18)'); sg.addColorStop(1, 'rgba(255,60,180,0)');
+  o.fillStyle = sg; o.fillRect(0, 0, 1080, 1920);
+  // moving perspective grid
+  o.save(); o.strokeStyle = '#ff2f9a'; o.lineWidth = 2;
+  for (let i = -16; i <= 16; i++) { o.globalAlpha = 0.22; o.beginPath(); o.moveTo(540 + i * 26, 1500); o.lineTo(540 + i * 210, 1940); o.stroke(); }
+  for (let k = 0; k < 12; k++) { const z = (k + (t * 0.8) % 1) / 12; const y = 1500 + Math.pow(z, 2.2) * 440; o.globalAlpha = 0.08 + 0.28 * z; o.beginPath(); o.moveTo(0, y); o.lineTo(1080, y); o.stroke(); }
+  o.restore();
+  o.fillStyle = '#ff2f7a'; o.globalAlpha = 0.6; o.fillRect(0, 1498, 1080, 3); o.globalAlpha = 1;
+}
+function grain(t) {
+  o.fillStyle = 'rgba(0,0,0,0.05)'; for (let y = 0; y < 1920; y += 4) o.fillRect(0, y, 1080, 1);
+  let s = Math.floor(t * 30) * 7919 + 1; const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  o.fillStyle = 'rgba(255,255,255,0.03)'; for (let i = 0; i < 700; i++) o.fillRect(r() * 1080, r() * 1920, 2, 2);
+}
+
+// ======================= captions =======================
+const HOT = /^(stackforge\.?|order|orders|alert\.?|accept,?|live\.?|sale,?|upi,?|boss!?|ek|tap|saath|stock|screen|sold|out\.?)$/i;
+function wrapWords(words, size, maxW) {
+  o.font = `900 ${size}px ${FONT2}`;
+  const lines = [[]]; let w = 0;
+  for (const wd of words) { const ww = o.measureText(wd + ' ').width; if (w + ww > maxW && lines[lines.length - 1].length) { lines.push([]); w = 0; } lines[lines.length - 1].push(wd); w += ww; }
+  return lines;
+}
+function caption(t, line, y, size = 66) {
+  const start = line.at - 0.05, end = line.at + line.dur + 0.35;
+  if (t < start || t > end + 0.3) return;
+  const fadeOut = 1 - cl((t - end) / 0.3);
+  const words = line.caption.split(' ');
+  const per = (line.dur * 0.92) / words.length;
+  const lines = wrapWords(words, size, 940);
+  let idx = 0;
+  lines.forEach((ln, li) => {
+    o.font = `900 ${size}px ${FONT2}`;
+    const total = ln.reduce((a, w) => a + o.measureText(w + ' ').width, 0) - o.measureText(' ').width;
+    let x = 540 - total / 2;
+    const ly = y + li * size * 1.18;
+    for (const wd of ln) {
+      const appear = line.at + idx * per;
+      const k = cl((t - appear) / 0.16);
+      const ww = o.measureText(wd).width;
+      if (k > 0) {
+        const sc = 1 + 0.35 * (1 - spr(k));
+        o.save(); o.translate(x + ww / 2, ly); o.scale(sc, sc);
+        o.globalAlpha = cl(k * 2) * fadeOut;
+        o.textAlign = 'center'; o.textBaseline = 'middle'; o.lineJoin = 'round';
+        o.lineWidth = 14; o.strokeStyle = 'rgba(8,2,20,0.92)'; o.strokeText(wd, 0, 0);
+        const hot = HOT.test(wd.replace(/[“”"]/g, ''));
+        o.shadowColor = hot ? '#3ef2ff' : '#ff4fd8'; o.shadowBlur = 22;
+        o.fillStyle = hot ? '#7ff8ff' : '#ffffff'; o.fillText(wd, 0, 0);
+        o.restore();
+      }
+      x += ww + o.measureText(' ').width; idx++;
+    }
+  });
+}
+function featurePill(t) {
+  const i = Math.min(3, Math.floor((t - T_APP) / SLOT));
+  const local = t - T_APP - i * SLOT;
+  const k = spr(cl(local / 0.45)), out = (i < 3 && local > SLOT - 0.2) ? 1 - cl((local - (SLOT - 0.2)) / 0.2) : 1;
+  const intro = cl((t - T_APP - 0.3) / 0.4);
+  const a = Math.min(k, out) * intro * (1 - cl((t - (T_END - 0.3)) / 0.3));
+  if (a <= 0) return;
+  const c = CLIPS[i];
+  o.save(); o.globalAlpha = a; o.translate(540, 96); o.scale(0.8 + 0.2 * k, 0.8 + 0.2 * k);
+  o.font = `800 34px ${FONT2}`; const tw = o.measureText(c.label).width;
+  const w = tw + 130;
+  o.shadowColor = '#ff4fd8'; o.shadowBlur = 26; o.fillStyle = 'rgba(25,8,50,0.9)'; rrect(o, -w / 2, -34, w, 68, 34); o.fill();
+  o.shadowBlur = 0; o.strokeStyle = '#ff4fd8'; o.lineWidth = 3; rrect(o, -w / 2, -34, w, 68, 34); o.stroke();
+  o.fillStyle = '#3ef2ff'; o.font = `900 30px ${FONT2}`; o.textBaseline = 'middle'; o.textAlign = 'left'; o.fillText(c.tag, -w / 2 + 28, 2);
+  o.fillStyle = '#fff'; o.font = `800 34px ${FONT2}`; o.fillText(c.label, -w / 2 + 92, 2);
+  o.restore();
+}
+
+// ======================= logo card =======================
+function logoCard(t) {
+  const lt = t - T_LOGO;
+  synthBg(t);
+  // big synthwave sun
+  const sun = o.createLinearGradient(0, 900, 0, 1420);
+  sun.addColorStop(0, '#ffe66d'); sun.addColorStop(0.55, '#ff8a3d'); sun.addColorStop(1, '#ff2f7a');
+  o.save(); o.globalAlpha = cl(lt / 0.4); o.shadowColor = '#ff5a8a'; o.shadowBlur = 90; o.fillStyle = sun; o.beginPath(); o.arc(540, 1260, 330, Math.PI, 0); o.fill(); o.restore();
+  o.fillStyle = '#1d0942'; for (let i = 0; i < 7; i++) { const y = 1120 + i * 22 + ((t * 20) % 22); o.fillRect(180, y, 720, 3 + i * 1.5); }
+  o.fillStyle = '#12052a'; o.fillRect(0, 1260, 1080, 30);
+  // icon: three stacked forge bars + spark (original mark)
+  const k = spr(cl(lt / 0.6));
+  o.save(); o.translate(540, 470 - (1 - k) * 160); o.globalAlpha = cl(lt / 0.25);
+  const bars = [[-120, -70, 240, 44, '#3ef2ff'], [-150, -12, 300, 44, '#b06bff'], [-100, 46, 200, 44, '#ff4fd8']];
+  bars.forEach(([x, y, w, h, c], i) => { const kk = spr(cl((lt - i * 0.08) / 0.55)); o.save(); o.translate(0, (1 - kk) * -90); o.shadowColor = c; o.shadowBlur = 30; o.fillStyle = c; rrect(o, x, y, w, h, 14); o.fill(); o.restore(); });
+  const sp = cl((lt - 0.35) / 0.5);
+  o.strokeStyle = '#ffe66d'; o.lineWidth = 6; o.lineCap = 'round'; o.shadowColor = '#ffe66d'; o.shadowBlur = 20;
+  for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + (i - 2.5) * 0.35, r0 = 100, r1 = 100 + 60 * sp; o.globalAlpha = sp * (1 - cl((lt - 1.4) / 0.6)) + 0.001; o.beginPath(); o.moveTo(Math.cos(a) * r0 + 120, Math.sin(a) * r0 - 70); o.lineTo(Math.cos(a) * r1 + 120, Math.sin(a) * r1 - 70); o.stroke(); }
+  o.restore();
+  // wordmark
+  const wk = eo(cl((lt - 0.2) / 0.6));
+  o.save(); o.globalAlpha = wk; o.textAlign = 'center'; o.textBaseline = 'middle';
+  o.font = `900 ${150}px ${FONT2}`;
+  o.shadowColor = '#ff4fd8'; o.shadowBlur = 50; o.fillStyle = '#ffffff'; o.fillText('StackForge', 540, 720 + (1 - wk) * 40);
+  o.shadowBlur = 0;
+  // light sweep
+  const sx = lp(-300, 1400, cl((lt - 0.7) / 0.9));
+  const sw = o.createLinearGradient(sx - 120, 0, sx + 120, 0); sw.addColorStop(0, 'rgba(255,255,255,0)'); sw.addColorStop(0.5, 'rgba(255,255,255,0.9)'); sw.addColorStop(1, 'rgba(255,255,255,0)');
+  o.globalCompositeOperation = 'source-atop'; o.fillStyle = sw; o.fillText('StackForge', 540, 720); o.globalCompositeOperation = 'source-over';
+  o.restore();
+  const tk = eo(cl((lt - 0.65) / 0.5));
+  o.save(); o.globalAlpha = tk; o.textAlign = 'center'; o.textBaseline = 'middle';
+  o.font = `800 58px ${FONT2}`; o.shadowColor = '#3ef2ff'; o.shadowBlur = 24; o.fillStyle = '#7ff8ff';
+  o.fillText('run your kitchen like a boss.', 540, 850 + (1 - tk) * 30);
+  o.restore();
+  const ck = cl((lt - 1.1) / 0.5);
+  o.save(); o.globalAlpha = ck; o.textAlign = 'center'; o.font = `600 34px ${FONT2}`; o.fillStyle = '#d9cffd';
+  o.fillText('Orders · Kitchen · Stock · Sales — in one app', 540, 1420);
+  o.restore();
+}
+
+// ======================= one frame =======================
+let lockShot = null; // the opening's last frame, for the morph into the app
+async function compose(t) {
+  o.setTransform(1, 0, 0, 1, 0, 0); o.globalAlpha = 1; o.filter = 'none';
+  if (t < T_APP) {
+    window.render(t);
+    o.drawImage(SRC, 0, 0);
+    const l = VO[0]; if (l) caption(t, l, 1660);
+  } else if (t < T_END) {
+    if (!lockShot) { window.render(5.999); lockShot = document.createElement('canvas'); lockShot.width = 1080; lockShot.height = 1920; lockShot.getContext('2d').drawImage(SRC, 0, 0); }
+    synthBg(t);
+    const mu = cl((t - T_APP) / 0.35);
+    if (mu < 1) { o.globalAlpha = 1 - mu; o.drawImage(lockShot, 0, 0); o.globalAlpha = 1; }
+    const r = phoneRect(t);
+    drawPhoneFrame(r, cl((t - T_APP) / 0.6));
+    const i = Math.min(3, Math.floor((t - T_APP) / SLOT));
+    const local = t - T_APP - i * SLOT;
+    const v = await clipFrame(i, local);
+    drawInScreen(r, v, 1080, 2340, 1);
+    // cross-fade into the next clip
+    if (i < 3 && local > SLOT - 0.22) { const nv = await clipFrame(i + 1, 0); drawInScreen(r, nv, 1080, 2340, cl((local - (SLOT - 0.22)) / 0.22)); }
+    // lock screen fading out on top at the start
+    if (mu < 1) { o.save(); rrect(o, r.cx - r.w / 2, r.cy - r.h / 2, r.w, r.h, r.r); o.clip(); o.globalAlpha = 1 - mu; const s = r.w / PH0.w; o.translate(r.cx, r.cy); o.scale(s, s); o.drawImage(lockShot, -540, -960); o.restore(); }
+    featurePill(t);
+    for (const l of VO.slice(1, 5)) caption(t, l, 196, 58);
+    // flash into the ending
+    const fx = cl((t - (T_END - 0.18)) / 0.18);
+    if (fx > 0) { o.fillStyle = `rgba(255,220,255,${fx})`; o.fillRect(0, 0, 1080, 1920); }
+  } else if (t < T_LOGO) {
+    window.renderEnd(t - T_END);
+    o.drawImage(SRC, 0, 0);
+    const fl = 1 - cl((t - T_END) / 0.25);
+    if (fl > 0) { o.fillStyle = `rgba(255,220,255,${fl})`; o.fillRect(0, 0, 1080, 1920); }
+    const l = VO[5]; if (l) caption(t, l, 1660, 70);
+    const fx = cl((t - (T_LOGO - 0.15)) / 0.15);
+    if (fx > 0) { o.fillStyle = `rgba(255,255,255,${fx})`; o.fillRect(0, 0, 1080, 1920); }
+  } else {
+    logoCard(t);
+    const fl = 1 - cl((t - T_LOGO) / 0.3);
+    if (fl > 0) { o.fillStyle = `rgba(255,255,255,${fl})`; o.fillRect(0, 0, 1080, 1920); }
+    const fo = cl((t - (TOTAL - 0.35)) / 0.35); // gentle fade out at the very end
+    if (fo > 0) { o.fillStyle = `rgba(0,0,0,${fo * 0.85})`; o.fillRect(0, 0, 1080, 1920); }
+  }
+  if (t >= T_APP) grain(t);
+}
+window.compose = compose;
+window.stillJpeg = async t => { await compose(t); return O.toDataURL('image/jpeg', 0.85); };
+
+// ======================= audio =======================
+function trimSilence(buf) {
+  const d = buf.getChannelData(0); let a = 0, b = d.length - 1;
+  while (a < b && Math.abs(d[a]) < 0.012) a++;
+  while (b > a && Math.abs(d[b]) < 0.012) b--;
+  return { start: Math.max(0, a / buf.sampleRate - 0.03), dur: (b - a) / buf.sampleRate + 0.06 };
+}
+// vo: [{ id, at, max, caption, wavB64 }]
+window.setupVO = async vo => {
+  const ac = new OfflineAudioContext(1, 48000, 48000);
+  VO = [];
+  for (const l of vo) {
+    const bytes = Uint8Array.from(atob(l.wavB64), c => c.charCodeAt(0));
+    const buf = await ac.decodeAudioData(bytes.buffer);
+    const tr = trimSilence(buf);
+    const rate = tr.dur > l.max ? tr.dur / l.max : 1;            // speed up slightly if it overruns its slot
+    VO.push({ ...l, buf, trimStart: tr.start, rate, dur: tr.dur / rate });
+    delete VO[VO.length - 1].wavB64;
+  }
+  return VO.map(v => ({ id: v.id, at: v.at, dur: +v.dur.toFixed(2), rate: +v.rate.toFixed(2) }));
+};
+
+const BPM = 100, BEAT = 60 / BPM, BAR = BEAT * 4;
+const NOTE = n => 440 * Math.pow(2, (n - 69) / 12);
+// A minor progression: Am F C G (MIDI roots)
+const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];
+async function renderAudio() {
+  const SR = 48000, ac = new OfflineAudioContext(2, Math.round(SR * TOTAL), SR);
+  const master = ac.createGain(); master.gain.value = 0.9;
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.15;
+  master.connect(comp); comp.connect(ac.destination);
+  const music = ac.createGain(); music.connect(master);
+  const voBus = ac.createGain(); voBus.gain.value = 1.25; voBus.connect(master);
+  // ducking under the voice
+  music.gain.setValueAtTime(1, 0);
+  for (const l of VO) { music.gain.setTargetAtTime(0.42, Math.max(0, l.at - 0.08), 0.05); music.gain.setTargetAtTime(1, l.at + l.dur + 0.1, 0.25); }
+  // fade out at the end
+  music.gain.setValueAtTime(1, TOTAL - 1.2); music.gain.linearRampToValueAtTime(0.0001, TOTAL);
+
+  const noise = ac.createBuffer(1, SR * 2, SR); { const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const delay = ac.createDelay(1); delay.delayTime.value = BEAT * 0.75; const fb = ac.createGain(); fb.gain.value = 0.32; const wet = ac.createGain(); wet.gain.value = 0.35;
+  delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(music);
+
+  function env(g, t, a, d, peak, sustain = 0) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(Math.max(0.0001, sustain), t + a + d); }
+  function kick(t, v = 1) { const os = ac.createOscillator(), g = ac.createGain(); os.frequency.setValueAtTime(150, t); os.frequency.exponentialRampToValueAtTime(42, t + 0.18); env(g, t, 0.003, 0.32, 0.9 * v); os.connect(g); g.connect(music); os.start(t); os.stop(t + 0.4); }
+  function snare(t) { const s = ac.createBufferSource(); s.buffer = noise; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.7; const g = ac.createGain(); env(g, t, 0.002, 0.2, 0.55); s.connect(f); f.connect(g); g.connect(music); g.connect(delay); s.start(t, Math.random()); s.stop(t + 0.25);
+    const os = ac.createOscillator(), g2 = ac.createGain(); os.frequency.setValueAtTime(220, t); os.frequency.exponentialRampToValueAtTime(120, t + 0.1); env(g2, t, 0.002, 0.12, 0.35); os.connect(g2); g2.connect(music); os.start(t); os.stop(t + 0.15); }
+  function hat(t, v = 0.18) { const s = ac.createBufferSource(); s.buffer = noise; const f = ac.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 8000; const g = ac.createGain(); env(g, t, 0.001, 0.05, v); s.connect(f); f.connect(g); g.connect(music); s.start(t, Math.random()); s.stop(t + 0.07); }
+  function synth(t, dur, midi, type, vol, cutoff, dest = music, detune = 0) {
+    const os = ac.createOscillator(); os.type = type; os.frequency.value = NOTE(midi); os.detune.value = detune;
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; f.Q.value = 4;
+    const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.02, dur / 3)); g.gain.setTargetAtTime(0.0001, t + dur * 0.8, dur * 0.15 + 0.01);
+    os.connect(f); f.connect(g); g.connect(dest); os.start(t); os.stop(t + dur + 0.3);
+  }
+  function pad(t, dur, chord, vol) { for (const n of chord) for (const dt of [-9, 9]) { const os = ac.createOscillator(); os.type = 'sawtooth'; os.frequency.value = NOTE(n); os.detune.value = dt; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400; const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.4); g.gain.setValueAtTime(vol, t + dur - 0.3); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.1); os.connect(f); f.connect(g); g.connect(music); g.connect(delay); os.start(t); os.stop(t + dur + 0.2); } }
+  function whoosh(t, dur, f0, f1, vol) { const s = ac.createBufferSource(); s.buffer = noise; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(music); s.start(t); s.stop(t + dur + 0.05); }
+  function buzz(t) { const os = ac.createOscillator(); os.type = 'square'; os.frequency.value = 165; const tr = ac.createGain(); const lfo = ac.createOscillator(); lfo.frequency.value = 28; const lg = ac.createGain(); lg.gain.value = 0.5; lfo.connect(lg); lg.connect(tr.gain); tr.gain.value = 0.5; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600; const g = ac.createGain(); env(g, t, 0.01, 0.32, 0.22); os.connect(tr); tr.connect(f); f.connect(g); g.connect(master); os.start(t); lfo.start(t); os.stop(t + 0.4); lfo.stop(t + 0.4);
+    for (const [dt, n] of [[0.05, 88], [0.13, 93]]) { const c = ac.createOscillator(); c.type = 'sine'; c.frequency.value = NOTE(n); const cg = ac.createGain(); env(cg, t + dt, 0.005, 0.35, 0.12); c.connect(cg); cg.connect(master); c.start(t + dt); c.stop(t + dt + 0.45); } }
+
+  // --- opening: pad + soft arp, phone buzzes, riser into the drop
+  pad(0, BAR * 1.15, CHORDS[0], 0.035); pad(BAR * 1.15, T_APP - BAR * 1.15, CHORDS[1], 0.035);
+  for (let t = 0.6; t < T_APP - 0.2; t += BEAT / 2) synth(t, BEAT / 2, CHORDS[0][Math.floor(t / (BEAT / 2)) % 3] + 12, 'square', 0.035, 900 + t * 300, music);
+  for (const b of [0.85, 1.6, 2.3]) buzz(b);
+  whoosh(2.75, T_APP - 2.75, 300, 6000, 0.22);
+  for (let t = 4.2; t < T_APP; t += BEAT / 4) hat(t, 0.05 + (t - 4.2) * 0.06);
+  // --- main groove from the drop to the logo
+  kick(T_APP, 1.2);
+  for (let t = T_APP; t < T_LOGO - 0.01; t += BEAT) {
+    const beatN = Math.round((t - T_APP) / BEAT);
+    kick(t);
+    if (beatN % 2 === 1) snare(t);
+    hat(t + BEAT / 2); hat(t + BEAT / 4, 0.08); hat(t + 3 * BEAT / 4, 0.08);
+    const ch = CHORDS[Math.floor(beatN / 4) % 4];
+    for (let k = 0; k < 4; k++) synth(t + k * BEAT / 4, BEAT / 4 * 0.9, ch[0] - 24 + (k === 2 ? 12 : 0), 'sawtooth', 0.11, 700, music);
+    for (let k = 0; k < 2; k++) synth(t + k * BEAT / 2, BEAT / 2 * 0.8, ch[(beatN * 2 + k) % 3] + 12, 'square', 0.04, 2600, delay);
+    if (beatN % 4 === 0) pad(t, BAR, ch, 0.03);
+  }
+  whoosh(T_END - 0.45, 0.5, 800, 4000, 0.18);            // into the ending
+  whoosh(T_END + 0.85, 0.7, 500, 7000, 0.16);            // the toss
+  // --- logo hit
+  kick(T_LOGO, 1.4);
+  { const s = ac.createBufferSource(); s.buffer = noise; const f = ac.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3000; const g = ac.createGain(); env(g, T_LOGO, 0.005, 1.8, 0.3); s.connect(f); f.connect(g); g.connect(music); s.start(T_LOGO); s.stop(T_LOGO + 2); }
+  pad(T_LOGO, TOTAL - T_LOGO, [57, 60, 64, 69], 0.05);
+  synth(T_LOGO, 2.2, 45, 'sawtooth', 0.12, 500, music);
+  // --- voice
+  for (const l of VO) { const s = ac.createBufferSource(); s.buffer = l.buf; s.playbackRate.value = l.rate; s.connect(voBus); s.start(l.at, l.trimStart, l.dur * l.rate); }
+  return ac.startRendering();
+}
+
+// ======================= export =======================
+window.renderAll = async () => {
+  const W = 1080, H = 1920, n = TOTAL * FPS;
+  let codec = 'avc1.640034';
+  if (!(await VideoEncoder.isConfigSupported({ codec, width: W, height: H })).supported) codec = 'avc1.4d0034';
+  const muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: FPS }, audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 48000 }, fastStart: 'in-memory' });
+  let err = null;
+  const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { err = e; } });
+  venc.configure({ codec, width: W, height: H, bitrate: 14_000_000, framerate: FPS, latencyMode: 'quality' });
+  for (let i = 0; i < n; i++) {
+    await compose(i / FPS);
+    const f = new VideoFrame(O, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+    venc.encode(f, { keyFrame: i % FPS === 0 }); f.close();
+    while (venc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 4));
+    if (err) throw err;
+  }
+  await venc.flush();
+  // audio
+  const audio = await renderAudio();
+  const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => { err = e; } });
+  aenc.configure({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
+  const L = audio.getChannelData(0), R = audio.getChannelData(1), CH = 4800;
+  // normalise to -1 dBFS so nothing clips
+  { let pk = 0; for (const c of [L, R]) for (let i = 0; i < c.length; i++) { const v = Math.abs(c[i]); if (v > pk) pk = v; }
+    const gain = 0.89 / Math.max(pk, 1e-6); for (const c of [L, R]) for (let i = 0; i < c.length; i++) c[i] *= gain; }
+  for (let s = 0; s < L.length; s += CH) {
+    const len = Math.min(CH, L.length - s), data = new Float32Array(len * 2);
+    data.set(L.subarray(s, s + len), 0); data.set(R.subarray(s, s + len), len);
+    const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: len, numberOfChannels: 2, timestamp: Math.round(s / 48000 * 1e6), data });
+    aenc.encode(ad); ad.close();
+  }
+  await aenc.flush();
+  if (err) throw err;
+  muxer.finalize();
+  const buf = new Uint8Array(muxer.target.buffer);
+  let str = ''; for (let i = 0; i < buf.length; i += 0x8000) str += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  // also hand back the music+voice mix as WAV for the edit folder
+  return { mp4: btoa(str), codec, frames: n, peak: Math.max(...[L, R].map(c => c.reduce((m, v) => Math.max(m, Math.abs(v)), 0))) };
+};
+</script>
+</body>
+</html>
