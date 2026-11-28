@@ -45,6 +45,7 @@ h1, h2, h3 { font-family: var(--f-display); margin: 0; letter-spacing: -0.01em; 
 .wrap.wide { max-width: 1180px; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }
+[hidden] { display: none !important; } /* layout classes must never override the hidden attribute */
 .stack { display: grid; gap: 12px; min-width: 0; }
 .stack.lg { gap: 18px; }
 .grow { flex: 1; min-width: 0; }

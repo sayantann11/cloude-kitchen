@@ -113,3 +113,18 @@ test('forgot password asks for the email, then confirms the reset link was sent'
   await page.getByRole('button', { name: 'Forgot password?' }).click();
   await expect(page.getByText('Check your email')).toBeVisible();
 });
+
+test('on a phone the board tabs switch between New, Cooking and Send out', async ({ page }) => {
+  await kitchenLogin(page);
+  const newH = page.getByRole('heading', { name: /^New orders/ });
+  const cookH = page.getByRole('heading', { name: /^Cooking/ });
+  const sendH = page.getByRole('heading', { name: /^Send out/ });
+  await expect(newH).toBeVisible();
+  await expect(cookH).toBeHidden();
+  await page.locator('.board-tabs button', { hasText: 'Cooking' }).click();
+  await expect(cookH).toBeVisible();
+  await expect(newH).toBeHidden();
+  await page.locator('.board-tabs button', { hasText: 'Send out' }).click();
+  await expect(sendH).toBeVisible();
+  await expect(cookH).toBeHidden();
+});

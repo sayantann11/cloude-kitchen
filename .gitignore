@@ -8,3 +8,5 @@ firebase-debug.log
 test-results
 playwright-report
 *.log
+promo/out
+promo/node_modules

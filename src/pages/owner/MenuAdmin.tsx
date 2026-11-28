@@ -58,7 +58,7 @@ export function MenuAdmin() {
       </div>
 
       {m.items.some(i => !i.available) && (
-        <div class="banner warn"><div class="grow"><b>{m.items.filter(i => !i.available).length} dishes switched off</b>Starting a new night? Switch them all back on in one tap.</div><Btn variant="ghost" small onClick={resetDay}>Reset sold out</Btn></div>
+        <div class="banner warn"><div class="grow"><b>{m.items.filter(i => !i.available).length === 1 ? '1 dish' : `${m.items.filter(i => !i.available).length} dishes`} switched off</b>Starting a new night? Switch them all back on in one tap.</div><Btn variant="ghost" small onClick={resetDay}>Reset sold out</Btn></div>
       )}
 
       <div class="segtabs" role="group" aria-label="Show dishes">
