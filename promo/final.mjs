@@ -1,7 +1,7 @@
 // Final 30s edit.
 //   node promo/final.mjs stills 3 7 12 ...   -> promo/out/stills/final-XXs.jpg
 //   node promo/final.mjs video               -> promo/out/StackForge-promo-30s.mp4
-// Needs: promo/out/01-opening (drawn live), promo/out/clips/*.mp4 (record.mjs), promo/out/vo/*.wav (vo.ps1).
+// Needs: promo/out/clips/*.mp4 (record.mjs) and voice lines promo/out/vo/vo1..vo6 as .mp3/.m4a/.wav (ElevenLabs, phone, or vo.ps1 placeholder).
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,7 +10,14 @@ import { chromium } from '@playwright/test';
 const [mode, ...rest] = process.argv.slice(2);
 const root = path.resolve('promo');
 const vo = JSON.parse(fs.readFileSync(path.join(root, 'vo.json'), 'utf8')).lines
-  .map(l => ({ ...l, wavB64: fs.readFileSync(path.join(root, 'out/vo', `${l.id}.wav`)).toString('base64') }));
+  .map(l => {
+    // a real recording (vo1.mp3 / .m4a / .wav from ElevenLabs or a phone) wins over the placeholder TTS
+    const dir = path.join(root, 'out/vo');
+    const file = ['mp3', 'm4a', 'wav'].map(e => path.join(dir, `${l.id}.${e}`)).find(f => fs.existsSync(f));
+    if (!file) throw new Error(`missing voice file for ${l.id} in ${dir}`);
+    console.log(`  ${l.id}: ${path.basename(file)}`);
+    return { ...l, wavB64: fs.readFileSync(file).toString('base64') };
+  });
 
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || 'msedge', args: ['--allow-file-access-from-files', '--autoplay-policy=no-user-gesture-required'] });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
