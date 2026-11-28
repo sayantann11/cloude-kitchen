@@ -48,7 +48,7 @@ export function startKitchenSync(): () => void {
 
 function updateTitle() {
   const n = placed.value.length;
-  document.title = n ? `(${n}) New order${n > 1 ? 's' : ''} · Kitchen` : `Kitchen · ${settings.value.kitchenName}`;
+  document.title = n ? `(${n}) New order${n > 1 ? 's' : ''} · Admin` : `Admin · ${settings.value.kitchenName}`;
 }
 
 function alertNew(fresh: Order[]) {
