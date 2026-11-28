@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>encoder</title>
+<script src="node_modules/mp4-muxer/build/mp4-muxer.js"></script>
+<script>
+// Turns JPEG frames into an H.264 MP4 with WebCodecs. Driven from Node (record.mjs).
+let muxer, enc, cv, cx, W, H, FPS, idx = 0, err = null;
+window.encInit = async (w, h, fps) => {
+  W = w; H = h; FPS = fps; idx = 0; err = null;
+  cv = new OffscreenCanvas(W, H); cx = cv.getContext('2d');
+  let codec = 'avc1.640034';
+  if (!(await VideoEncoder.isConfigSupported({ codec, width: W, height: H })).supported) codec = 'avc1.4d0034';
+  muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: FPS }, fastStart: 'in-memory' });
+  enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { err = e; } });
+  enc.configure({ codec, width: W, height: H, bitrate: 12_000_000, framerate: FPS, latencyMode: 'quality' });
+  return codec;
+};
+// one source image shown for `repeat` output frames
+window.encFrame = async (b64, repeat) => {
+  const bmp = await createImageBitmap(await (await fetch('data:image/jpeg;base64,' + b64)).blob());
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
+  cx.drawImage(bmp, 0, 0, W, H); bmp.close();
+  for (let k = 0; k < repeat; k++) {
+    const f = new VideoFrame(cv, { timestamp: Math.round(idx * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+    enc.encode(f, { keyFrame: idx % FPS === 0 }); f.close(); idx++;
+    while (enc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 4));
+    if (err) throw err;
+  }
+  return idx;
+};
+window.encFinish = async () => {
+  await enc.flush(); muxer.finalize();
+  const buf = new Uint8Array(muxer.target.buffer);
+  let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+</script>
